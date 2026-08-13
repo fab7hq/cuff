@@ -1,0 +1,17 @@
+{
+  "name": "fab7",
+  "version": "0.1.0",
+  "description": "Initialize and use the local Fab7 proof CLI.",
+  "author": {
+    "name": "Fab7",
+    "url": "https://github.com/fab7hq"
+  },
+  "homepage": "https://github.com/fab7hq/fab7",
+  "repository": "https://github.com/fab7hq/fab7",
+  "license": "Apache-2.0",
+  "keywords": [
+    "proof",
+    "verification",
+    "git"
+  ]
+}

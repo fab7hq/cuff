@@ -1,0 +1,128 @@
+---
+title: Fab7 Ledger Contract
+type: architecture
+status: accepted
+owner: architecture
+last_updated: 2026-08-13
+authority_for:
+  - claim and evidence record shapes
+  - command observation semantics
+  - atomic append invariants
+  - latest-claim readiness
+---
+
+# Fab7 ledger contract
+
+Fab7 persists one canonical JSONL ledger per normalized work item under
+`.fab7/records/<work-item>.jsonl`. Record generation remains `1` and the only
+record types are `claim` and `evidence`.
+
+## Claim
+
+```json
+{
+  "v": 1,
+  "id": "rec_...",
+  "type": "claim",
+  "work_item": "task-1",
+  "created_at": "2026-08-13T00:00:00Z",
+  "actor": "human:unknown",
+  "summary": "Implementation complete",
+  "subject": {
+    "kind": "file",
+    "ref": "src/app.py",
+    "digest": "sha256:..."
+  }
+}
+```
+
+Subject identity is exactly `{kind, ref, digest}`. `file` and `tree` are
+reserved for bounded Fab7-computed manifests. Other lowercase kinds describe
+caller-declared immutable subjects. Actor precedence is explicit argument,
+`FAB7_ACTOR`, then `human:unknown`; it is attribution, not authentication.
+
+## Evidence
+
+```json
+{
+  "v": 1,
+  "id": "rec_...",
+  "type": "evidence",
+  "work_item": "task-1",
+  "created_at": "2026-08-13T00:00:01Z",
+  "actor": "human:unknown",
+  "claim": "rec_...",
+  "subject_digest": "sha256:...",
+  "command_digest": "sha256:...",
+  "exit_code": 0,
+  "output_digest": "sha256:...",
+  "provenance": {
+    "kind": "git",
+    "commit": "0123456789abcdef0123456789abcdef01234567"
+  }
+}
+```
+
+Evidence must link to an earlier claim in the same ledger and repeat that
+claim's subject digest. Provenance has only the Git shape. Older digest-only
+evidence is incompatible and cannot establish readiness; it is never upgraded,
+rewritten, or silently accepted.
+
+## Opaque command observation
+
+`verify` and `seal` execute only the literal argv after `--`, with no shell.
+Fab7 bounds argument count and bytes, timeout, and retained output. It digests
+the complete stdout and stderr streams even when retained output is truncated.
+The command digest binds canonical argv, not a verifier type or registry name.
+
+Fab7 does not understand the command's domain. An extension may perform
+semantic review first and supply a deterministic final integrity assertion;
+Fab7 observes that caller-selected process and its exit status only.
+
+A stable exit or timeout is representable evidence. Exit zero is passing;
+nonzero and timeout code `124` are failed evidence. Launch failure and
+interruption append no evidence.
+
+## Atomicity and concurrency
+
+Each append validates the complete resulting ledger and replaces the file
+atomically under a per-ledger lock. A baseline length and digest reject a stale
+writer after command execution.
+
+`seal` builds one claim and one linked evidence record in memory and appends
+both in one replacement. Stable success, failure, and timeout append exactly
+one pair. Subject drift, Git drift, invalid observation, launch failure,
+interruption, and concurrent mutation append neither record. There is no third
+seal record.
+
+Ledgers reject unknown fields, unknown record types, duplicate JSON keys,
+duplicate record IDs, bad links, ownership mismatch, symlinks, incomplete
+lines, and noncanonical work items.
+
+## Readiness
+
+`check` is the only readiness implementation. Its closed JSON result is:
+
+```json
+{
+  "ok": true,
+  "errors": [],
+  "work_item": "task-1",
+  "latest_claim": {},
+  "selected_evidence": {},
+  "record_count": 2
+}
+```
+
+It parses every ledger, selects the latest claim in the requested ledger, and
+requires linked exit-zero evidence. File and tree subjects are recomputed.
+Every check also enforces:
+
+- exact Git worktree-root ownership and non-ledger cleanliness;
+- evidence-commit ancestry of the selected head;
+- no non-record change after the evidence commit;
+- optional explicit base/head comparison or the local default; and
+- append-only record changes.
+
+The selected claim and evidence are the exact records used by the decision.
+The JSONL ledger remains the complete bounded history.

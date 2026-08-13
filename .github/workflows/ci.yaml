@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        python-version:
+          - "3.11"
+          - "3.14"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+      - name: Install dependencies
+        run: uv sync --python ${{ matrix.python-version }} --locked
+      - name: Verify source
+        run: |
+          uv lock --check --no-config
+          uv run --python ${{ matrix.python-version }} --locked python -m compileall -q core/fab7 core/tests
+          git diff --check
+      - name: Run tests
+        run: uv run --python ${{ matrix.python-version }} --locked python -m pytest
+      - name: Build standard distributions
+        run: uv build --python ${{ matrix.python-version }}
