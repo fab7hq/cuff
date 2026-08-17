@@ -35,7 +35,7 @@ jobs:
       - name: Verify source
         run: |
           uv lock --check --no-config
-          uv run --python ${{ matrix.python-version }} --locked python -m compileall -q core/fab7 core/tests
+          uv run --python ${{ matrix.python-version }} --locked python -m compileall -q core/cuff core/tests
           git diff --check
       - name: Run tests
         run: uv run --python ${{ matrix.python-version }} --locked python -m pytest

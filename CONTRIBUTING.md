@@ -1,6 +1,6 @@
-# Contributing to Fab7
+# Contributing to Cuff
 
-Fab7 is intentionally small. Keep each change tied to one proof-core outcome
+Cuff is intentionally small. Keep each change tied to one proof-core outcome
 and avoid adding adjacent frameworks, compatibility layers, or distribution
 machinery.
 
@@ -10,8 +10,8 @@ Requirements are Git, Python 3.11 or newer, and uv. Version `0.11.32` is the
 tested uv recommendation.
 
 ```bash
-git clone https://github.com/fab7hq/fab7.git
-cd fab7
+git clone https://github.com/fab7hq/cuff.git
+cd cuff
 uv sync --locked
 ```
 
@@ -20,7 +20,7 @@ uv sync --locked
 ```bash
 uv lock --check --no-config
 uv run --locked python -m pytest
-uv run --locked python -m compileall -q core/fab7
+uv run --locked python -m compileall -q core/cuff
 uv build
 git diff --check
 git status --short

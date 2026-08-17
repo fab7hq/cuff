@@ -1,14 +1,14 @@
 ---
-title: Fab7 Documentation
+title: Cuff Documentation
 type: index
 status: accepted
 owner: docs
 last_updated: 2026-08-13
 ---
 
-# Fab7 documentation
+# Cuff documentation
 
-Fab7 is a Git-anchored claim and evidence gate with five public commands.
+Cuff is a Git-anchored claim and evidence gate with five public commands.
 
 | Document | Authority |
 |---|---|

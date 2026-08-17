@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-import fab7.cli as cli
-from fab7 import __version__
-from fab7.cli import main
+import cuff.cli as cli
+from cuff import __version__
+from cuff.cli import main
 
 from conftest import git
 
@@ -28,8 +28,8 @@ def _subject_args() -> list[str]:
 def _initialize_and_commit(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["init", "--workspace", str(repo), "--json"]) == 0
     capsys.readouterr()
-    git(repo, "add", ".fab7/project.json")
-    git(repo, "commit", "-qm", "initialize fab7")
+    git(repo, "add", ".cuff/project.json")
+    git(repo, "commit", "-qm", "initialize cuff")
 
 
 def test_command_surface_is_exactly_the_five_proof_commands() -> None:
@@ -92,8 +92,8 @@ def test_denim_style_json_subprocess_contract_is_git_anchored(
         "status": "initialized",
         "workspace": str(repo),
     }
-    git(repo, "add", ".fab7/project.json")
-    git(repo, "commit", "-qm", "initialize fab7")
+    git(repo, "add", ".cuff/project.json")
+    git(repo, "commit", "-qm", "initialize cuff")
 
     assert main([
         "claim", "--work-item", "work-1", "--summary", "Done", *_subject_args(), "--json"
@@ -190,7 +190,7 @@ def test_json_errors_are_one_parseable_stdout_document(
     ]) == 1
     captured = capsys.readouterr()
     assert captured.err == ""
-    assert json.loads(captured.out)["errors"][0]["code"] == "FAB7_COMMAND_REQUIRED"
+    assert json.loads(captured.out)["errors"][0]["code"] == "CUFF_COMMAND_REQUIRED"
 
 
 def test_missing_setup_and_non_git_init_return_stable_errors(
@@ -200,12 +200,12 @@ def test_missing_setup_and_non_git_init_return_stable_errors(
     assert main([
         "check", "--workspace", str(repo), "--work-item", "work-1", "--json"
     ]) == 1
-    assert json.loads(capsys.readouterr().out)["errors"][0]["code"] == "FAB7_PROJECT_NOT_INITIALIZED"
+    assert json.loads(capsys.readouterr().out)["errors"][0]["code"] == "CUFF_PROJECT_NOT_INITIALIZED"
 
     outside = repo.parent / f"{repo.name}-outside"
     outside.mkdir()
     assert main(["init", "--workspace", str(outside), "--json"]) == 1
-    assert json.loads(capsys.readouterr().out)["errors"][0]["code"] == "FAB7_NOT_A_REPOSITORY"
+    assert json.loads(capsys.readouterr().out)["errors"][0]["code"] == "CUFF_NOT_A_REPOSITORY"
 
 
 def test_interruption_and_unexpected_failure_have_distinct_exit_codes(
@@ -221,7 +221,7 @@ def test_interruption_and_unexpected_failure_have_distinct_exit_codes(
     monkeypatch.setattr(cli, "check", lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("boom")))
     assert main(["check", "--work-item", "work-1", "--json"]) == 3
     data = json.loads(capsys.readouterr().out)
-    assert data["errors"] == [{"code": "FAB7_UNEXPECTED", "message": "ValueError: boom"}]
+    assert data["errors"] == [{"code": "CUFF_UNEXPECTED", "message": "ValueError: boom"}]
 
 
 def test_version_flag_reports_package_version(capsys: pytest.CaptureFixture[str]) -> None:

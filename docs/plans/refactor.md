@@ -1,5 +1,5 @@
 ---
-title: Fab7 0.1.0 Lean Core Refactoring Plan
+title: Cuff 0.1.0 Lean Core Refactoring Plan
 type: plan
 status: proposed
 owner: architecture
@@ -7,32 +7,32 @@ last_updated: 2026-08-13
 implementation_authorized: false
 publication_authorized: false
 authority_for:
-  - Fab7 simplification target
+  - Cuff simplification target
   - retained and removed CLI commands
   - proof-core ownership boundaries
   - implementation sequence and acceptance criteria
 ---
 
-# Fab7 0.1.0 lean core refactoring plan
+# Cuff 0.1.0 lean core refactoring plan
 
 ## 1. Purpose
 
-Refactor Fab7 back to one product:
+Refactor Cuff back to one product:
 
-> Fab7 records a claim for one exact subject, executes one caller-selected
+> Cuff records a claim for one exact subject, executes one caller-selected
 > verifier, records the observation, and later determines whether the latest
 > claim still has fresh passing evidence.
 
-Fab7 is a hard proof requirement that other products compose. An extension may
-perform richer domain verification first, but Fab7 does not discover, register,
+Cuff is a hard proof requirement that other products compose. An extension may
+perform richer domain verification first, but Cuff does not discover, register,
 route to, or understand extension verification subsystems.
 
 Denim is the reference composition:
 
 1. Denim performs its own coverage and goal-drift verification.
 2. Denim creates or confirms one immutable batch.
-3. Denim invokes public `fab7 verify` or `fab7 seal` for that exact batch.
-4. Denim accepts the Fab7 receipt only when it matches the requested batch.
+3. Denim invokes public `cuff verify` or `cuff seal` for that exact batch.
+4. Denim accepts the Cuff receipt only when it matches the requested batch.
 
 This document plans the refactor. It does not authorize implementation,
 sibling-repository changes, migration, release, publication, or deployment.
@@ -42,20 +42,20 @@ sibling-repository changes, migration, release, publication, or deployment.
 The target has five public commands plus `--version`:
 
 ```text
-fab7 init
-fab7 claim
-fab7 verify
-fab7 seal
-fab7 check
+cuff init
+cuff claim
+cuff verify
+cuff seal
+cuff check
 ```
 
 The following commands are removed, not deprecated:
 
 ```text
-fab7 install
-fab7 ext ...
-fab7 audit
-fab7 doctor
+cuff install
+cuff ext ...
+cuff audit
+cuff doctor
 ```
 
 The target architecture makes these additional decisions:
@@ -70,7 +70,7 @@ The target architecture makes these additional decisions:
 - require one explicit Git repository boundary while removing branch,
   pull-request, release, toolchain, and host inference from proof identity;
 - replace the release-pinned project manifest with a minimal workspace marker;
-- use standard `uv` package and tool workflows for Fab7 and extensions;
+- use standard `uv` package and tool workflows for Cuff and extensions;
 - let each host and extension own its native plugin installation and assets;
 - retain the CLI JSON contract as the extension boundary; do not add a public
   Python SDK, plugin SDK, verifier registry, callback interface, or provider
@@ -78,7 +78,7 @@ The target architecture makes these additional decisions:
 
 Git being the hard boundary has one narrow meaning:
 
-- the Fab7 workspace is the exact root of one existing Git worktree;
+- the Cuff workspace is the exact root of one existing Git worktree;
 - every evidence record carries the observed `HEAD` commit;
 - `verify` and `seal` require the non-ledger worktree to be clean before and
   after execution;
@@ -86,33 +86,33 @@ Git being the hard boundary has one narrow meaning:
   append-only ledger rules;
 - subject, command, and output digests remain exact identity fields, not an
   alternative provenance mode;
-- Fab7 never initializes a repository or stages, commits, fetches, pushes, or
+- Cuff never initializes a repository or stages, commits, fetches, pushes, or
   otherwise mutates Git.
 
 ## 3. Important verification boundary
 
-“Fab7 does not call a verification subsystem” means Fab7 has no knowledge of
-Denim, Tapestry, or another verifier implementation. The only process Fab7 may
+“Cuff does not call a verification subsystem” means Cuff has no knowledge of
+Denim, Tapestry, or another verifier implementation. The only process Cuff may
 start is the literal argv explicitly supplied after `--` to `verify` or `seal`.
-Fab7 treats that argv as opaque data and records its command digest, exit code,
+Cuff treats that argv as opaque data and records its command digest, exit code,
 and output digest.
 
-This generic process observation is retained because it gives Fab7 direct
+This generic process observation is retained because it gives Cuff direct
 evidence instead of caller self-report. Removing it would require a new generic
-proof-envelope protocol and would no longer establish that Fab7 observed a
+proof-envelope protocol and would no longer establish that Cuff observed a
 passing verifier. That redesign is outside this simplification plan.
 
 An extension therefore owns two distinct layers:
 
 - **domain verification:** coverage, goal drift, business rules, review, or any
-  other extension-specific judgment performed before Fab7 is invoked;
+  other extension-specific judgment performed before Cuff is invoked;
 - **final verifier argv:** a bounded deterministic assertion selected by the
-  caller and observed by Fab7 for the exact subject.
+  caller and observed by Cuff for the exact subject.
 
-Fab7 never selects that command, imports the extension, reads extension-owned
+Cuff never selects that command, imports the extension, reads extension-owned
 state by convention, or interprets the command's domain output. A final Denim
 integrity command may confirm that the immutable batch still matches the
-already accepted review; it must not make Fab7 a Denim workflow engine or rerun
+already accepted review; it must not make Cuff a Denim workflow engine or rerun
 an agentic semantic review.
 
 ## 4. Current implementation findings
@@ -143,7 +143,7 @@ rollback, and uninstall behavior.
 
 This coupling is visible at import time: `cli.py` imports `extension/`,
 `hosts.py`, installation code, package builders, and proof functions together.
-A user invoking `fab7 check` therefore ships and imports responsibilities that
+A user invoking `cuff check` therefore ships and imports responsibilities that
 have nothing to do with checking proof.
 
 ### 4.3 Distribution dominates the implementation
@@ -155,7 +155,7 @@ the claim/evidence ledger.
 
 ### 4.4 Project initialization is tied to a global native release
 
-The current `.fab7/project.json` stores Fab7 version and executable digest, and
+The current `.cuff/project.json` stores Cuff version and executable digest, and
 every project command compares them with a globally selected release. This
 conflicts with normal `uv tool install`, upgrade, and isolated execution.
 Workspace identity does not require executable pinning.
@@ -177,7 +177,7 @@ provenance choice: Git is fixed, while work item and actor remain explicit.
 
 ## 5. Target product boundary
 
-Fab7 owns only:
+Cuff owns only:
 
 - initialization of one local proof workspace;
 - exact subject validation and optional filesystem manifesting;
@@ -189,7 +189,7 @@ Fab7 owns only:
 - mandatory Git commit provenance and readiness;
 - stable human and JSON CLI output.
 
-Fab7 does not own:
+Cuff does not own:
 
 - extension discovery, catalogs, registries, source schemas, or packages;
 - extension creation, builds, installation, activation, rollback, or removal;
@@ -207,10 +207,10 @@ Fab7 does not own:
 
 ## 6. Target CLI contract
 
-### 6.1 `fab7 init`
+### 6.1 `cuff init`
 
 ```text
-fab7 init [--workspace PATH] [--json]
+cuff init [--workspace PATH] [--json]
 ```
 
 Behavior:
@@ -218,8 +218,8 @@ Behavior:
 - select only the explicit existing directory or the current directory;
 - require the `git` executable;
 - require that selection to be the root of one existing Git worktree;
-- create `.fab7/project.json` as the exact marker `{"schema": 1}`;
-- create `.fab7/records/`;
+- create `.cuff/project.json` as the exact marker `{"schema": 1}`;
+- create `.cuff/records/`;
 - validate path and symlink safety;
 - preserve already valid records;
 - be idempotent for the exact marker;
@@ -227,14 +227,14 @@ Behavior:
   resolving and validating the local Git worktree boundary.
 
 There is no initialization provenance option. Git is the fixed product
-boundary for initialization, verification, sealing, and readiness. Fab7 does
+boundary for initialization, verification, sealing, and readiness. Cuff does
 not initialize a Git repository, choose another worktree, or infer proof
 identity from a branch or pull request.
 
-### 6.2 `fab7 claim`
+### 6.2 `cuff claim`
 
 ```text
-fab7 claim --work-item ID --summary TEXT
+cuff claim --work-item ID --summary TEXT
            (--subject-kind KIND --subject-ref REF --subject-digest DIGEST
             | --subject-path PATH)
            [--workspace PATH] [--actor ACTOR] [--json]
@@ -243,18 +243,18 @@ fab7 claim --work-item ID --summary TEXT
 Behavior:
 
 - require the work item explicitly;
-- accept either one Fab7-computed file/tree subject or one complete declared
+- accept either one Cuff-computed file/tree subject or one complete declared
   subject;
 - append one validated claim;
 - never execute a verifier;
 - never infer work-item identity or actor attribution from Git;
-- use `--actor`, then `FAB7_ACTOR`, then `human:unknown` for attribution;
+- use `--actor`, then `CUFF_ACTOR`, then `human:unknown` for attribution;
 - treat actor as attribution, not authentication.
 
-### 6.3 `fab7 verify`
+### 6.3 `cuff verify`
 
 ```text
-fab7 verify --work-item ID --claim RECORD_ID
+cuff verify --work-item ID --claim RECORD_ID
             [--workspace PATH]
             [--timeout SECONDS] [--actor ACTOR] [--json]
             -- COMMAND [ARGS...]
@@ -264,7 +264,7 @@ Behavior:
 
 - require an existing claim in the same explicit work item;
 - require the workspace to be the root of one clean Git worktree;
-- allow only append-only Fab7 record paths to differ from `HEAD`;
+- allow only append-only Cuff record paths to differ from `HEAD`;
 - capture and validate the claimed subject before execution;
 - execute the literal argv without a shell and with bounded arguments, time,
   retained output, and digested full output;
@@ -273,10 +273,10 @@ Behavior:
 - return success only for exit code zero;
 - never identify or interpret the verifier as an extension subsystem.
 
-### 6.4 `fab7 seal`
+### 6.4 `cuff seal`
 
 ```text
-fab7 seal --work-item ID --summary TEXT
+cuff seal --work-item ID --summary TEXT
           (--subject-kind KIND --subject-ref REF --subject-digest DIGEST
            | --subject-path PATH)
           [--workspace PATH]
@@ -297,10 +297,10 @@ Behavior:
 `seal` remains the preferred extension path because it prevents a partially
 written latest claim when the final observation cannot be represented.
 
-### 6.5 `fab7 check`
+### 6.5 `cuff check`
 
 ```text
-fab7 check --work-item ID [--workspace PATH]
+cuff check --work-item ID [--workspace PATH]
            [--base REF] [--head REF] [--json]
 ```
 
@@ -338,10 +338,10 @@ JSONL ledger remains the complete inspectable history.
 
 - Every stateful command accepts `--workspace PATH`.
 - Without `--workspace`, non-init commands discover the nearest parent with the
-  exact Fab7 project marker in a bounded walk.
+  exact Cuff project marker in a bounded walk.
 - Every discovered or explicit workspace must equal its containing Git
   worktree root; a nested marker or workspace outside Git fails closed.
-- All mutation and check failures return exit code `1` with stable Fab7 errors.
+- All mutation and check failures return exit code `1` with stable Cuff errors.
 - Argument usage errors return `2`, unexpected internal failures return `3`,
   and interruption returns `130`.
 - `--json` writes one JSON document to stdout; diagnostics do not corrupt that
@@ -377,7 +377,7 @@ worktree root is the mandatory external workspace boundary.
 
 The implementation must not silently reinterpret or rewrite an incompatible
 marker. A user cutting over an older initialized workspace must explicitly
-archive or remove only the old marker and rerun `fab7 init`. Existing ledgers
+archive or remove only the old marker and rerun `cuff init`. Existing ledgers
 may remain only when every record passes the Git-only closed ledger parser. No
 automatic migration command is added.
 
@@ -389,17 +389,17 @@ automatic migration command is added.
 extension
     -> performs extension-specific verification
     -> creates one exact immutable subject
-    -> invokes public fab7 claim/verify or fab7 seal
+    -> invokes public cuff claim/verify or cuff seal
     -> validates the returned JSON receipt
 
-fab7
+cuff
     -> validates the subject and workspace
     -> executes only the literal caller-supplied verifier argv
     -> records the observation
     -> knows nothing about the extension
 ```
 
-Fab7 must contain no extension names, extension paths, extension manifests,
+Cuff must contain no extension names, extension paths, extension manifests,
 extension record schemas, extension lifecycle hooks, or extension-specific
 error mapping.
 
@@ -413,27 +413,27 @@ Denim retains ownership of:
 - goal-drift judgment;
 - review freshness and confirmation;
 - its immutable batch and local state;
-- validation of the Fab7 response against the requested batch.
+- validation of the Cuff response against the requested batch.
 
-After those checks pass, Denim calls `fab7 seal` once for its batch. Any final
-Denim argv supplied to Fab7 is a deterministic integrity assertion for the
-already reviewed batch, not a Fab7-discovered subsystem and not another
-semantic model review. Failed or mismatched Fab7 sealing leaves Denim state
+After those checks pass, Denim calls `cuff seal` once for its batch. Any final
+Denim argv supplied to Cuff is a deterministic integrity assertion for the
+already reviewed batch, not a Cuff-discovered subsystem and not another
+semantic model review. Failed or mismatched Cuff sealing leaves Denim state
 pending.
 
-Fab7 does not import Denim and Denim does not import Fab7 Python modules. The
+Cuff does not import Denim and Denim does not import Cuff Python modules. The
 public executable plus JSON output is the only runtime boundary.
 
 ### 8.3 Installation ownership
 
 `uv` owns Python executable installation and dependency isolation:
 
-- Fab7 is installed as the `fab7-cli` tool;
+- Cuff is installed as the `cuff-cli` tool;
 - Denim and every other extension are installed as their own uv tools;
 - each project owns its own version, dependencies, wheel, and release;
 - development uses an editable uv tool installation or an isolated project
   environment;
-- Fab7 never builds or vendors an extension executable.
+- Cuff never builds or vendors an extension executable.
 
 Claude Code and Codex own plugin discovery and installation:
 
@@ -441,9 +441,9 @@ Claude Code and Codex own plugin discovery and installation:
 - host assets invoke the corresponding uv-managed executable on `PATH`;
 - the host plugin does not contain a copied Python runtime or native binary;
 - the host's native plugin manager installs, updates, and removes those assets;
-- Fab7 does not wrap host plugin commands or maintain a second marketplace.
+- Cuff does not wrap host plugin commands or maintain a second marketplace.
 
-The Fab7 repository may retain a minimal static host integration for
+The Cuff repository may retain a minimal static host integration for
 initialization and proof guidance, but it must not generate Claude assets from
 Codex assets or vice versa. Small host-native files are cheaper and clearer
 than a cross-host adapter/build framework.
@@ -451,9 +451,9 @@ than a cross-host adapter/build framework.
 ## 9. Target repository structure
 
 ```text
-fab7/
+cuff/
 ├── core/
-│   ├── fab7/
+│   ├── cuff/
 │   │   ├── __init__.py
 │   │   ├── __main__.py
 │   │   ├── cli.py
@@ -497,15 +497,15 @@ tree.
 
 Remove these runtime areas after their retained responsibilities have moved:
 
-- `core/fab7/extension/`;
-- `core/fab7/plugin/`;
-- `core/fab7/templates/`;
-- `core/fab7/hosts.py`;
-- `core/fab7/install.py`;
-- `core/fab7/toolchain.py`;
-- `core/fab7/native_build.py`;
-- `core/fab7/release_build.py`;
-- Fab7-managed build requirements and PyInstaller package data;
+- `core/cuff/extension/`;
+- `core/cuff/plugin/`;
+- `core/cuff/templates/`;
+- `core/cuff/hosts.py`;
+- `core/cuff/install.py`;
+- `core/cuff/toolchain.py`;
+- `core/cuff/native_build.py`;
+- `core/cuff/release_build.py`;
+- Cuff-managed build requirements and PyInstaller package data;
 - `install.sh`;
 - generated host adapter templates and extension action templates.
 
@@ -526,7 +526,7 @@ behavior.
 
 ## 11. File-level implementation plan
 
-### 11.1 `core/fab7/cli.py`
+### 11.1 `core/cuff/cli.py`
 
 - rebuild the parser around the five retained commands;
 - remove all host and extension imports;
@@ -538,7 +538,7 @@ behavior.
 - keep stdout/stderr replay for non-JSON verifier execution;
 - add parser tests proving every removed command is absent.
 
-### 11.2 `core/fab7/workspace.py`
+### 11.2 `core/cuff/workspace.py`
 
 - own project initialization and marker validation;
 - select current directory for implicit init;
@@ -549,11 +549,11 @@ behavior.
 - atomically create the minimal marker;
 - call ledger directory initialization without release selection.
 
-### 11.3 `core/fab7/ledger.py`
+### 11.3 `core/cuff/ledger.py`
 
 - retain claim, verify, seal, parser, bounds, locking, and atomic writes;
 - remove pull-request and Git-branch work-item derivation;
-- reduce actor resolution to explicit argument, `FAB7_ACTOR`, or
+- reduce actor resolution to explicit argument, `CUFF_ACTOR`, or
   `human:unknown`;
 - preserve literal Git commit provenance;
 - keep command execution generic and extension-unaware;
@@ -561,7 +561,7 @@ behavior.
 - avoid splitting the module unless a directly measured responsibility can be
   removed by doing so.
 
-### 11.4 `core/fab7/gate.py`
+### 11.4 `core/cuff/gate.py`
 
 - keep one `check` implementation;
 - fold the minimal useful audit projection into the check result;
@@ -572,13 +572,13 @@ behavior.
   functions;
 - remove the generic `Result` helper if a plain closed result object is simpler.
 
-### 11.5 `core/fab7/errors.py`
+### 11.5 `core/cuff/errors.py`
 
-- retain `Fab7Error` and stable error serialization;
+- retain `CuffError` and stable error serialization;
 - remove unused result machinery after `gate.py` is simplified;
 - do not introduce an error class hierarchy.
 
-### 11.6 `core/fab7/subject.py` and `core/fab7/git.py`
+### 11.6 `core/cuff/subject.py` and `core/cuff/git.py`
 
 - preserve existing bounded subject and Git behavior;
 - remove helpers made unreachable by the single mandatory Git policy;
@@ -586,9 +586,9 @@ behavior.
 
 ### 11.7 Packaging
 
-- keep a standard PEP 517 project and the `fab7` console script;
+- keep a standard PEP 517 project and the `cuff` console script;
 - keep runtime dependencies empty;
-- remove the PyInstaller build dependency and Fab7 package templates;
+- remove the PyInstaller build dependency and Cuff package templates;
 - remove the exact managed-CPython coupling;
 - set the minimum Python version to the lowest version proven by the retained
   core, initially expected to be Python 3.11 or later;
@@ -602,16 +602,16 @@ behavior.
 - retain only actions that directly help initialize or use the proof CLI;
 - remove `ext-create`, `ext-list`, and `ext-install` assets;
 - store final Claude Code and Codex files in their native layouts;
-- keep each file short and delegate all proof mutation to `fab7 --json`;
+- keep each file short and delegate all proof mutation to `cuff --json`;
 - validate static structure, but do not rebuild or package it through Python;
 - require separately authorized live-host installation evidence before claiming
   current host compatibility.
 
 ### 11.9 GitHub Action
 
-- keep the action only as a thin invocation of released Fab7;
+- keep the action only as a thin invocation of released Cuff;
 - install or run the selected standard package through uv;
-- invoke `fab7 check` with explicit work item and refs;
+- invoke `cuff check` with explicit work item and refs;
 - contain no second readiness implementation;
 - do not build a native executable inside the action.
 
@@ -622,7 +622,7 @@ behavior.
 1. Capture `git status --short`, including all untracked paths.
 2. Preserve every unrelated user-owned edit in the dirty worktree.
 3. Run the current focused proof tests and full suite before deletion.
-4. Save current `fab7 --help` and retained command help as comparison evidence.
+4. Save current `cuff --help` and retained command help as comparison evidence.
 5. Add target parser and workspace tests before removing implementation.
 
 Exit criteria:
@@ -660,9 +660,9 @@ Exit criteria:
 
 Exit criteria:
 
-- `fab7 init` fails closed outside a Git worktree and for a selection that is
+- `cuff init` fails closed outside a Git worktree and for a selection that is
   not the worktree root;
-- no ordinary proof command needs `FAB7_HOME`, uv, PyInstaller, or a globally
+- no ordinary proof command needs `CUFF_HOME`, uv, PyInstaller, or a globally
   selected release;
 - an incompatible marker fails clearly without hidden rewriting.
 
@@ -676,7 +676,7 @@ Exit criteria:
 
 Exit criteria:
 
-- importing `fab7.cli` loads only proof-core modules;
+- importing `cuff.cli` loads only proof-core modules;
 - no runtime code references catalog, extension package, host registration,
   PyInstaller, managed CPython, or native release selection;
 - the retained full test suite passes.
@@ -686,7 +686,7 @@ Exit criteria:
 1. Simplify `pyproject.toml` and regenerate the lock.
 2. Build a wheel and source distribution with `uv build`.
 3. Install the wheel into an isolated temporary uv tool directory.
-4. In a disposable Git worktree, smoke `fab7 --version`, `init`, commit the
+4. In a disposable Git worktree, smoke `cuff --version`, `init`, commit the
    marker and test subject, then run `seal` and `check` from that installation.
 5. Replace generated host assets with minimal static native files.
 6. Validate host files structurally; keep live host mutation as a separately
@@ -696,7 +696,7 @@ Exit criteria:
 
 - standard artifacts install without the source checkout;
 - no native executable or bundled Python is produced;
-- the host assets depend only on the `fab7` executable being on `PATH`.
+- the host assets depend only on the `cuff` executable being on `PATH`.
 
 ### Phase 5 — Documentation synchronization
 
@@ -721,9 +721,9 @@ architecture in the active documentation tree.
 
 Exit criteria:
 
-- no active document advertises `fab7 install`, `fab7 ext`, `audit`, or
+- no active document advertises `cuff install`, `cuff ext`, `audit`, or
   `doctor`;
-- no active document claims Fab7 builds or installs extensions or host plugins;
+- no active document claims Cuff builds or installs extensions or host plugins;
 - all command examples match parser help;
 - version `0.1.0` and advisory uv `0.11.32` remain aligned where relevant.
 
@@ -731,16 +731,16 @@ Exit criteria:
 
 Perform read-only consumer checks first:
 
-- Denim `fab7 seal` invocation and response validation;
+- Denim `cuff seal` invocation and response validation;
 - Tapestry initialization and strict result parsing;
-- WNW or other repositories that call Fab7;
+- WNW or other repositories that call Cuff;
 - GitHub Action inputs and examples;
-- registry documentation that still presents Fab7 as an extension manager.
+- registry documentation that still presents Cuff as an extension manager.
 
 Sibling changes require their own authority and validation. Do not modify them
-as an implicit part of the Fab7 refactor.
+as an implicit part of the Cuff refactor.
 
-Exit criteria for the Fab7 repository:
+Exit criteria for the Cuff repository:
 
 - every retained local acceptance criterion passes;
 - known consumer incompatibilities are listed with exact paths and contracts;
@@ -760,7 +760,7 @@ Exit criteria for the Fab7 repository:
 - malformed, symlinked, or incompatible markers fail closed;
 - non-Git directories, nested workspace markers, and explicit non-root
   workspaces fail closed;
-- a missing or unusable Git executable fails with one stable Fab7 error;
+- a missing or unusable Git executable fails with one stable Cuff error;
 - human and JSON output remain separate and parseable.
 
 ### Claim and subject
@@ -807,7 +807,7 @@ Exit criteria for the Fab7 repository:
 - an isolated tool installation can execute the minimal end-to-end path;
 - wheel inspection contains only runtime package files;
 - static host manifests and skills contain no generated native payload;
-- the action delegates to `fab7 check`.
+- the action delegates to `cuff check`.
 
 ## 14. Verification commands
 
@@ -816,14 +816,14 @@ The implementation should finish with direct evidence equivalent to:
 ```sh
 uv sync --locked
 uv run --locked python -m pytest
-uv run --locked python -m compileall -q core/fab7
+uv run --locked python -m compileall -q core/cuff
 uv build
-fab7 --help
-fab7 init --help
-fab7 claim --help
-fab7 verify --help
-fab7 seal --help
-fab7 check --help
+cuff --help
+cuff init --help
+cuff claim --help
+cuff verify --help
+cuff seal --help
+cuff check --help
 git diff --check
 git status --short
 ```
@@ -838,7 +838,7 @@ from static tests.
 | Requirement | Required evidence |
 |---|---|
 | Five-command CLI | parser tests and actual help output |
-| No extension subsystem in Fab7 | source search plus import-boundary test |
+| No extension subsystem in Cuff | source search plus import-boundary test |
 | Denim-style composition remains possible | exact subprocess contract test and consumer review |
 | Git is the hard boundary | missing-Git, non-Git, and non-root rejection plus Git-only CLI tests |
 | Every observation is commit-anchored | record parser, verify, seal, and Git gate tests |
@@ -866,7 +866,7 @@ rewrite, upgrade, or silently reinterpret digest-only evidence.
 ### Consumers may parse removed command output or init fields
 
 Control: inventory exact callers before publication. Update each sibling only
-under separate authority. Do not add compatibility fields to Fab7.
+under separate authority. Do not add compatibility fields to Cuff.
 
 ### Removing custom installation may temporarily reduce convenience
 
@@ -875,8 +875,8 @@ host assets before release. Do not restore a second installer.
 
 ### Generic verifier argv may be mistaken for subsystem orchestration
 
-Control: document that Fab7 executes opaque caller-supplied argv only. Keep all
-extension discovery, routing, semantics, and state outside Fab7.
+Control: document that Cuff executes opaque caller-supplied argv only. Keep all
+extension discovery, routing, semantics, and state outside Cuff.
 
 ### Large deletion can conceal regressions
 
@@ -905,23 +905,23 @@ This refactor must not add:
 
 The refactor is complete only when all of the following are true:
 
-1. Fab7 exposes exactly `init`, `claim`, `verify`, `seal`, and `check`.
+1. Cuff exposes exactly `init`, `claim`, `verify`, `seal`, and `check`.
 2. The claim/evidence ledger and atomic seal invariants remain directly tested.
 3. Every evidence record is anchored to Git and readiness always enforces the
    Git worktree, commit ancestry, changed-path, cleanliness, and append-only
    ledger boundary.
 4. Work-item identity is explicit and environment-independent.
-5. Fab7 has no extension, host-installation, native-build, managed-toolchain, or
+5. Cuff has no extension, host-installation, native-build, managed-toolchain, or
    selected-release runtime code.
-6. Fab7 builds as a standard dependency-free Python package and installs as a
+6. Cuff builds as a standard dependency-free Python package and installs as a
    uv-managed tool.
 7. Host integrations are small static native assets owned outside the proof
    runtime.
-8. Extensions compose Fab7 through its executable and JSON result without Fab7
+8. Extensions compose Cuff through its executable and JSON result without Cuff
    understanding their domain verification.
 9. Every active document describes the implemented five-command architecture.
 10. Focused, full-suite, packaging, installed-tool, whitespace, and changed-path
     evidence pass for the exact final tree.
 11. Known sibling cutovers and live-host obligations are reported separately;
-    none are claimed from local Fab7 tests.
+    none are claimed from local Cuff tests.
 12. No release or publication occurs without separate explicit authorization.

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from fab7.errors import Fab7Error
-from fab7.subject import declared_subject, filesystem_subject, validate_subject
+from cuff.errors import CuffError
+from cuff.subject import declared_subject, filesystem_subject, validate_subject
 
 
 DIGEST = "sha256:" + "a" * 64
@@ -26,18 +26,18 @@ def test_declared_subject_is_closed_and_bounded() -> None:
         ("denim", "fabric_123", "sha256:" + "A" * 64),
     ]
     for kind, ref, digest in invalid:
-        with pytest.raises(Fab7Error, match="FAB7_SUBJECT_INVALID"):
+        with pytest.raises(CuffError, match="CUFF_SUBJECT_INVALID"):
             declared_subject(kind, ref, digest)
 
     for kind in ("file", "tree"):
-        with pytest.raises(Fab7Error, match="reserved"):
+        with pytest.raises(CuffError, match="reserved"):
             declared_subject(kind, "artifact", DIGEST)
 
-    with pytest.raises(Fab7Error, match="Subject fields are invalid"):
+    with pytest.raises(CuffError, match="Subject fields are invalid"):
         validate_subject({"kind": "artifact", "ref": "a", "digest": DIGEST, "extra": "x"})
-    with pytest.raises(Fab7Error, match="bounded lowercase token"):
+    with pytest.raises(CuffError, match="bounded lowercase token"):
         declared_subject("a" * 121, "artifact", DIGEST)
-    with pytest.raises(Fab7Error, match="bounded text"):
+    with pytest.raises(CuffError, match="bounded text"):
         declared_subject("artifact", "a" * 2049, DIGEST)
 
 
@@ -76,12 +76,12 @@ def test_filesystem_manifest_rejects_escape_controller_state_and_symlink(
 ) -> None:
     outside = tmp_path.parent / "outside-subject"
     outside.write_text("outside")
-    (workspace / ".fab7").mkdir()
-    (workspace / ".fab7/state").write_text("state")
+    (workspace / ".cuff").mkdir()
+    (workspace / ".cuff/state").write_text("state")
     (workspace / "link").symlink_to(outside)
 
-    for path in (outside, workspace / ".fab7", workspace / "link"):
-        with pytest.raises(Fab7Error, match="FAB7_SUBJECT_PATH_INVALID"):
+    for path in (outside, workspace / ".cuff", workspace / "link"):
+        with pytest.raises(CuffError, match="CUFF_SUBJECT_PATH_INVALID"):
             filesystem_subject(workspace, path)
 
 
@@ -91,15 +91,15 @@ def test_filesystem_manifest_rejects_special_files_and_bounds(
 ) -> None:
     fifo = workspace / "pipe"
     os.mkfifo(fifo)
-    with pytest.raises(Fab7Error, match="FAB7_SUBJECT_PATH_INVALID"):
+    with pytest.raises(CuffError, match="CUFF_SUBJECT_PATH_INVALID"):
         filesystem_subject(workspace, fifo)
 
     tree = workspace / "bounded"
     tree.mkdir()
     (tree / "one").write_text("1")
     (tree / "two").write_text("2")
-    monkeypatch.setattr("fab7.subject.MAX_FILES", 1)
-    with pytest.raises(Fab7Error, match="FAB7_SUBJECT_BOUNDS"):
+    monkeypatch.setattr("cuff.subject.MAX_FILES", 1)
+    with pytest.raises(CuffError, match="CUFF_SUBJECT_BOUNDS"):
         filesystem_subject(workspace, tree)
 
 
@@ -111,22 +111,22 @@ def test_filesystem_manifest_enforces_byte_depth_and_name_bounds(
     byte_tree.mkdir()
     (byte_tree / "a").write_text("12")
     with monkeypatch.context() as bounded:
-        bounded.setattr("fab7.subject.MAX_BYTES", 1)
-        with pytest.raises(Fab7Error, match="FAB7_SUBJECT_BOUNDS"):
+        bounded.setattr("cuff.subject.MAX_BYTES", 1)
+        with pytest.raises(CuffError, match="CUFF_SUBJECT_BOUNDS"):
             filesystem_subject(workspace, byte_tree)
 
     depth_tree = workspace / "depth"
     (depth_tree / "child").mkdir(parents=True)
     (depth_tree / "child" / "a").write_text("1")
     with monkeypatch.context() as bounded:
-        bounded.setattr("fab7.subject.MAX_DEPTH", 0)
-        with pytest.raises(Fab7Error, match="FAB7_SUBJECT_BOUNDS"):
+        bounded.setattr("cuff.subject.MAX_DEPTH", 0)
+        with pytest.raises(CuffError, match="CUFF_SUBJECT_BOUNDS"):
             filesystem_subject(workspace, depth_tree)
 
     name_tree = workspace / "names"
     name_tree.mkdir()
     (name_tree / "long").write_text("1")
     with monkeypatch.context() as bounded:
-        bounded.setattr("fab7.subject.MAX_NAME_BYTES", 3)
-        with pytest.raises(Fab7Error, match="FAB7_SUBJECT_BOUNDS"):
+        bounded.setattr("cuff.subject.MAX_NAME_BYTES", 3)
+        with pytest.raises(CuffError, match="CUFF_SUBJECT_BOUNDS"):
             filesystem_subject(workspace, name_tree)

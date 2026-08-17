@@ -1,5 +1,5 @@
 ---
-title: Fab7 Ledger Contract
+title: Cuff Ledger Contract
 type: architecture
 status: accepted
 owner: architecture
@@ -11,10 +11,10 @@ authority_for:
   - latest-claim readiness
 ---
 
-# Fab7 ledger contract
+# Cuff ledger contract
 
-Fab7 persists one canonical JSONL ledger per normalized work item under
-`.fab7/records/<work-item>.jsonl`. Record generation remains `1` and the only
+Cuff persists one canonical JSONL ledger per normalized work item under
+`.cuff/records/<work-item>.jsonl`. Record generation remains `1` and the only
 record types are `claim` and `evidence`.
 
 ## Claim
@@ -37,9 +37,9 @@ record types are `claim` and `evidence`.
 ```
 
 Subject identity is exactly `{kind, ref, digest}`. `file` and `tree` are
-reserved for bounded Fab7-computed manifests. Other lowercase kinds describe
+reserved for bounded Cuff-computed manifests. Other lowercase kinds describe
 caller-declared immutable subjects. Actor precedence is explicit argument,
-`FAB7_ACTOR`, then `human:unknown`; it is attribution, not authentication.
+`CUFF_ACTOR`, then `human:unknown`; it is attribution, not authentication.
 
 ## Evidence
 
@@ -71,13 +71,13 @@ rewritten, or silently accepted.
 ## Opaque command observation
 
 `verify` and `seal` execute only the literal argv after `--`, with no shell.
-Fab7 bounds argument count and bytes, timeout, and retained output. It digests
+Cuff bounds argument count and bytes, timeout, and retained output. It digests
 the complete stdout and stderr streams even when retained output is truncated.
 The command digest binds canonical argv, not a verifier type or registry name.
 
-Fab7 does not understand the command's domain. An extension may perform
+Cuff does not understand the command's domain. An extension may perform
 semantic review first and supply a deterministic final integrity assertion;
-Fab7 observes that caller-selected process and its exit status only.
+Cuff observes that caller-selected process and its exit status only.
 
 A stable exit or timeout is representable evidence. Exit zero is passing;
 nonzero and timeout code `124` are failed evidence. Launch failure and

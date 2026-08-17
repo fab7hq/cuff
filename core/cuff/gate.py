@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .errors import Fab7Error
+from .errors import CuffError
 from .ledger import RECORDS_DIR, normalize_work_item, read, read_all
 from .subject import current_subject
 
@@ -29,7 +29,7 @@ def check(
     try:
         read_all(root)
         records = read(root, normalized)
-    except Fab7Error as exc:
+    except CuffError as exc:
         result["errors"].append(exc.to_dict())
         return result
 
@@ -40,7 +40,7 @@ def check(
 
     git_context = _check_git_workspace(root, base, head, result["errors"])
     if claim is None:
-        _fail(result["errors"], "FAB7_CLAIM_MISSING", "No completion claim exists", work_item=normalized)
+        _fail(result["errors"], "CUFF_CLAIM_MISSING", "No completion claim exists", work_item=normalized)
         return result
 
     passing = [
@@ -61,7 +61,7 @@ def check(
 
     _fail(
         result["errors"],
-        "FAB7_EVIDENCE_MISSING",
+        "CUFF_EVIDENCE_MISSING",
         "Latest claim has no fresh passing evidence",
         work_item=normalized,
         record_id=claim["id"],
@@ -72,7 +72,7 @@ def check(
 def _subject_fresh(root: Path, claim: dict[str, Any]) -> bool:
     try:
         return current_subject(root, claim["subject"]) == claim["subject"]
-    except Fab7Error:
+    except CuffError:
         return False
 
 
@@ -88,9 +88,9 @@ def _check_git_workspace(
         workspace = root.resolve()
         repository = git.repo_root(workspace)
         if repository != workspace:
-            raise Fab7Error(
-                "FAB7_WORKSPACE_NOT_ROOT",
-                "Fab7 workspace must be the Git worktree root",
+            raise CuffError(
+                "CUFF_WORKSPACE_NOT_ROOT",
+                "Cuff workspace must be the Git worktree root",
                 {"workspace": str(workspace), "repository": str(repository)},
             )
         dirty = [
@@ -100,7 +100,7 @@ def _check_git_workspace(
         if dirty:
             _fail(
                 errors,
-                "FAB7_REPOSITORY_DIRTY",
+                "CUFF_REPOSITORY_DIRTY",
                 "Git readiness cannot evaluate uncommitted non-ledger changes",
                 paths=dirty,
             )
@@ -112,14 +112,14 @@ def _check_git_workspace(
             if not git.is_ancestor(comparison_base, proposed, repository):
                 _fail(
                     errors,
-                    "FAB7_GIT_ANCESTRY",
+                    "CUFF_GIT_ANCESTRY",
                     "The comparison base is not an ancestor of the selected head",
                     base=comparison_base,
                     head=proposed,
                 )
             _check_append_only(repository, workspace, comparison_base, head, errors)
         return repository, proposed
-    except Fab7Error as exc:
+    except CuffError as exc:
         errors.append(exc.to_dict())
         return None
 
@@ -163,7 +163,7 @@ def _check_append_only(
                 continue
         _fail(
             errors,
-            "FAB7_LEDGER_REWRITE",
+            "CUFF_LEDGER_REWRITE",
             "Ledger changes must only append complete lines",
             path=path,
             status=status,
@@ -185,7 +185,7 @@ def _evidence_fresh(
             return False
         changed = git.changed_files(repository, evidence_commit, proposed if head is not None else None)
         return not any(not _is_record_path(repository, root, path) for path in changed)
-    except Fab7Error:
+    except CuffError:
         return False
 
 
@@ -193,7 +193,7 @@ def _record_prefix(repository: Path, root: Path) -> str:
     try:
         return (root / RECORDS_DIR).resolve().relative_to(repository.resolve()).as_posix()
     except ValueError as exc:
-        raise Fab7Error("FAB7_NOT_A_REPOSITORY", "Fab7 workspace is outside the selected repository") from exc
+        raise CuffError("CUFF_NOT_A_REPOSITORY", "Cuff workspace is outside the selected repository") from exc
 
 
 def _is_record_path(repository: Path, root: Path, path: str) -> bool:

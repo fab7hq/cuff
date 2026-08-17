@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible Fab7 CLI, ledger, packaging, or static-integration defect.
+description: Report a reproducible Cuff CLI, ledger, packaging, or static-integration defect.
 title: "bug: "
 body:
   - type: markdown
@@ -8,7 +8,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Fab7 version
+      label: Cuff version
       placeholder: 0.1.0
     validations:
       required: true

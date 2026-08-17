@@ -28,8 +28,8 @@ Thumbs.db
 *.swp
 
 # This source repository does not dogfood its own proof ledger. Consumer
-# repositories commit `.fab7/records/` when they adopt the gate.
-/.fab7/
+# repositories commit `.cuff/records/` when they adopt the gate.
+/.cuff/
 .claude/
 .codex/
 .cursor/

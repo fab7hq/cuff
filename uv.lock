@@ -12,7 +12,7 @@ wheels = [
 ]
 
 [[package]]
-name = "fab7-cli"
+name = "cuff-cli"
 version = "0.1.0"
 source = { editable = "." }
 

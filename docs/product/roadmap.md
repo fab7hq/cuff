@@ -1,5 +1,5 @@
 ---
-title: Fab7 Product Roadmap
+title: Cuff Product Roadmap
 type: product
 status: accepted
 owner: product
@@ -10,11 +10,11 @@ authority_for:
   - external publication obligations
 ---
 
-# Fab7 product roadmap
+# Cuff product roadmap
 
 ## 0.1.0 lean-core cut
 
-The 0.1.0 source returns Fab7 to one product with five commands: `init`,
+The 0.1.0 source returns Cuff to one product with five commands: `init`,
 `claim`, `verify`, `seal`, and `check`.
 
 The cut retains generation-1 claim/evidence ledgers, exact subjects, bounded
@@ -29,12 +29,12 @@ contract removals with no compatibility reader or migration framework.
 
 ## Standard distribution
 
-Fab7 is a dependency-free Python package for Python 3.11 or newer. `uv build`
+Cuff is a dependency-free Python package for Python 3.11 or newer. `uv build`
 produces the standard wheel and source distribution; `uv tool install` owns
 the executable environment. uv `0.11.32` remains the tested recommendation.
 
 Claude Code and Codex guidance is stored as separate static native assets.
-Each host owns plugin installation and removal. Fab7 does not package those
+Each host owns plugin installation and removal. Cuff does not package those
 assets into the Python wheel or mutate a live host.
 
 ## Release gate
@@ -51,7 +51,7 @@ A 0.1.0 publication requires fresh evidence for the exact release bytes:
 - clean whitespace and exact changed-path review.
 
 Consumer changes, live host installation, release, publication, and deployment
-remain separate operations requiring separate authority. Local Fab7 tests do
+remain separate operations requiring separate authority. Local Cuff tests do
 not prove any of them.
 
 ## Still excluded

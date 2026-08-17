@@ -7,7 +7,7 @@ from typing import Any
 
 
 @dataclass
-class Fab7Error(Exception):
+class CuffError(Exception):
     code: str
     message: str
     context: dict[str, Any] = field(default_factory=dict)

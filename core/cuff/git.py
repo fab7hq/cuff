@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from .errors import Fab7Error
+from .errors import CuffError
 
 
 def _run(args: list[str], *, root: Path | str | None = None, check: bool = True) -> str:
@@ -20,10 +20,10 @@ def _run(args: list[str], *, root: Path | str | None = None, check: bool = True)
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise Fab7Error("FAB7_GIT_FAILED", f"Git command could not complete: {exc}") from exc
+        raise CuffError("CUFF_GIT_FAILED", f"Git command could not complete: {exc}") from exc
     if check and process.returncode != 0:
-        raise Fab7Error(
-            "FAB7_GIT_FAILED",
+        raise CuffError(
+            "CUFF_GIT_FAILED",
             process.stderr.strip() or "Git command failed",
             {"command": ["git", *args]},
         )
@@ -33,14 +33,14 @@ def _run(args: list[str], *, root: Path | str | None = None, check: bool = True)
 def repo_root(cwd: Path | str | None = None) -> Path:
     value = _run(["rev-parse", "--show-toplevel"], root=cwd, check=False).strip()
     if not value:
-        raise Fab7Error("FAB7_NOT_A_REPOSITORY", "Fab7 must run inside a Git repository")
+        raise CuffError("CUFF_NOT_A_REPOSITORY", "Cuff must run inside a Git repository")
     return Path(value).resolve()
 
 
 def head(root: Path, ref: str = "HEAD") -> str:
     value = _run(["rev-parse", "--verify", f"{ref}^{{commit}}"], root=root, check=False).strip()
     if not value:
-        raise Fab7Error("FAB7_GIT_REF_INVALID", f"Git ref cannot be resolved: {ref}")
+        raise CuffError("CUFF_GIT_REF_INVALID", f"Git ref cannot be resolved: {ref}")
     return value
 
 
@@ -55,10 +55,10 @@ def is_ancestor(ancestor: str, descendant: str, root: Path) -> bool:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise Fab7Error("FAB7_GIT_FAILED", f"Git ancestry check could not complete: {exc}") from exc
+        raise CuffError("CUFF_GIT_FAILED", f"Git ancestry check could not complete: {exc}") from exc
     if process.returncode in (0, 1):
         return process.returncode == 0
-    raise Fab7Error("FAB7_GIT_FAILED", process.stderr.decode().strip() or "Git ancestry check failed")
+    raise CuffError("CUFF_GIT_FAILED", process.stderr.decode().strip() or "Git ancestry check failed")
 
 
 def default_base(root: Path, proposed_head: str = "HEAD") -> str | None:
@@ -109,5 +109,5 @@ def show_file(root: Path, ref: str, path: str) -> bytes | None:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise Fab7Error("FAB7_GIT_FAILED", f"Historical ledger could not be read: {exc}") from exc
+        raise CuffError("CUFF_GIT_FAILED", f"Historical ledger could not be read: {exc}") from exc
     return process.stdout if process.returncode == 0 else None

@@ -1,4 +1,4 @@
-"""Fab7's intentionally small command line surface."""
+"""Cuff's intentionally small command line surface."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .errors import Fab7Error
+from .errors import CuffError
 from .gate import check
 from .ledger import append, create_claim, seal, verify
 from .subject import declared_subject, filesystem_subject
@@ -17,11 +17,11 @@ from .workspace import find_workspace, initialize_workspace
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="fab7")
+    parser = argparse.ArgumentParser(prog="cuff")
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
 
-    initialize = commands.add_parser("init", help="initialize a Fab7 workspace")
+    initialize = commands.add_parser("init", help="initialize a Cuff workspace")
     initialize.add_argument("--workspace", type=Path)
     initialize.add_argument("--json", action="store_true")
 
@@ -67,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "init":
             data = initialize_workspace(args.workspace)
-            return _finish(args, data, f"Fab7 project: {data['status']}")
+            return _finish(args, data, f"Cuff project: {data['status']}")
 
         root = find_workspace(args.workspace)
         if args.command == "claim":
@@ -130,9 +130,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.command == "check":
             data = check(root, args.work_item, base=args.base, head=args.head)
-            return _finish_result(args, data, "Fab7 readiness")
+            return _finish_result(args, data, "Cuff readiness")
         parser.error("unknown command")
-    except Fab7Error as exc:
+    except CuffError as exc:
         return _finish_error(args, exc)
     except KeyboardInterrupt:
         return 130
@@ -140,10 +140,10 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, "json", False):
             print(json.dumps({
                 "ok": False,
-                "errors": [{"code": "FAB7_UNEXPECTED", "message": f"{type(exc).__name__}: {exc}"}],
+                "errors": [{"code": "CUFF_UNEXPECTED", "message": f"{type(exc).__name__}: {exc}"}],
             }, sort_keys=True, indent=2))
         else:
-            print(f"FAB7_UNEXPECTED: {type(exc).__name__}: {exc}", file=sys.stderr)
+            print(f"CUFF_UNEXPECTED: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 3
     return 2
 
@@ -159,14 +159,14 @@ def _subject(root: Path, args: argparse.Namespace) -> dict[str, str]:
     declared = (args.subject_kind, args.subject_ref, args.subject_digest)
     if args.subject_path is not None:
         if any(value is not None for value in declared):
-            raise Fab7Error(
-                "FAB7_SUBJECT_INVALID",
+            raise CuffError(
+                "CUFF_SUBJECT_INVALID",
                 "Choose either --subject-path or all declared subject arguments",
             )
         return filesystem_subject(root, args.subject_path)
     if any(value is None for value in declared):
-        raise Fab7Error(
-            "FAB7_SUBJECT_REQUIRED",
+        raise CuffError(
+            "CUFF_SUBJECT_REQUIRED",
             "Pass --subject-path or --subject-kind, --subject-ref, and --subject-digest",
         )
     return declared_subject(*declared)
@@ -210,7 +210,7 @@ def _finish_result(args: argparse.Namespace, data: dict[str, Any], label: str) -
     return 0 if data["ok"] else 1
 
 
-def _finish_error(args: argparse.Namespace, error: Fab7Error) -> int:
+def _finish_error(args: argparse.Namespace, error: CuffError) -> int:
     data = {"ok": False, "errors": [error.to_dict()]}
     if getattr(args, "json", False):
         print(json.dumps(data, sort_keys=True, indent=2))

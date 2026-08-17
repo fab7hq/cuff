@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-import fab7.ledger as ledger_module
-from fab7.errors import Fab7Error
-from fab7.ledger import (
+import cuff.ledger as ledger_module
+from cuff.errors import CuffError
+from cuff.ledger import (
     append,
     append_many,
     baseline,
@@ -77,7 +77,7 @@ def test_digest_only_evidence_is_rejected_by_the_closed_parser() -> None:
         "provenance": {"kind": "digest"},
     }
 
-    with pytest.raises(Fab7Error, match="FAB7_LEDGER_INVALID"):
+    with pytest.raises(CuffError, match="CUFF_LEDGER_INVALID"):
         validate_record(evidence)
 
 
@@ -91,7 +91,7 @@ def test_append_many_is_ordered_atomic_and_rejects_changed_baseline(repo: Path) 
 
     assert lines == [1, 2]
     assert [record["id"] for record in read(repo, "work-1")] == [first["id"], second["id"]]
-    with pytest.raises(Fab7Error, match="FAB7_CONCURRENT_UPDATE"):
+    with pytest.raises(CuffError, match="CUFF_CONCURRENT_UPDATE"):
         append_many(repo, [_claim(repo, "Third")], expected=original)
     assert path.read_text().count("\n") == 2
 
@@ -101,11 +101,11 @@ def test_closed_parser_rejects_legacy_unknown_fields_and_bad_links(repo: Path) -
     claim = _claim(repo)
     path = directory / "work-1.jsonl"
     path.write_text(json.dumps({**claim, "git_ref": "a" * 40}) + "\n")
-    with pytest.raises(Fab7Error, match="archive or remove"):
+    with pytest.raises(CuffError, match="archive or remove"):
         read(repo, "work-1")
 
     path.write_text(json.dumps({**claim, "unexpected": True}) + "\n")
-    with pytest.raises(Fab7Error, match="FAB7_LEDGER_INVALID"):
+    with pytest.raises(CuffError, match="CUFF_LEDGER_INVALID"):
         read(repo, "work-1")
 
     path.unlink()
@@ -118,7 +118,7 @@ def test_closed_parser_rejects_legacy_unknown_fields_and_bad_links(repo: Path) -
         actor="agent:test",
     )
     path.write_text("\n".join(json.dumps(record) for record in (sealed.evidence, sealed.claim)) + "\n")
-    with pytest.raises(Fab7Error, match="unknown claim"):
+    with pytest.raises(CuffError, match="unknown claim"):
         read(repo, "work-1")
 
 
@@ -126,35 +126,35 @@ def test_invalid_json_duplicate_ids_and_foreign_work_items_fail_closed(repo: Pat
     directory = init(repo)
     broken = directory / "broken.jsonl"
     broken.write_text("{not json}\n")
-    with pytest.raises(Fab7Error, match="FAB7_LEDGER_INVALID"):
+    with pytest.raises(CuffError, match="CUFF_LEDGER_INVALID"):
         read_all(repo)
     broken.unlink()
 
     claim = _claim(repo)
     path = directory / "work-1.jsonl"
     path.write_text("\n".join(json.dumps(claim) for _ in range(2)) + "\n")
-    with pytest.raises(Fab7Error, match="duplicate"):
+    with pytest.raises(CuffError, match="duplicate"):
         read(repo, "work-1")
 
     foreign = create_claim(repo, "work-2", "Done", SUBJECT, "agent:test")
     path.write_text(json.dumps(foreign) + "\n")
-    with pytest.raises(Fab7Error, match="work item does not match its ledger"):
+    with pytest.raises(CuffError, match="work item does not match its ledger"):
         read(repo, "work-1")
 
 
 def test_actor_resolution_has_only_explicit_environment_unknown_precedence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("FAB7_ACTOR", "agent:environment")
-    monkeypatch.setenv("FAB7_PR_NUMBER", "41")
+    monkeypatch.setenv("CUFF_ACTOR", "agent:environment")
+    monkeypatch.setenv("CUFF_PR_NUMBER", "41")
 
     assert resolve_actor("agent:explicit") == "agent:explicit"
     assert resolve_actor(None) == "agent:environment"
-    monkeypatch.delenv("FAB7_ACTOR")
+    monkeypatch.delenv("CUFF_ACTOR")
     assert resolve_actor(None) == "human:unknown"
-    with pytest.raises(Fab7Error, match="bounded nonempty text"):
+    with pytest.raises(CuffError, match="bounded nonempty text"):
         resolve_actor("")
-    with pytest.raises(Fab7Error, match="FAB7_WORK_ITEM_REQUIRED"):
+    with pytest.raises(CuffError, match="CUFF_WORK_ITEM_REQUIRED"):
         normalize_work_item(None)
 
 
@@ -232,11 +232,11 @@ def test_git_verification_rejects_dirty_pre_and_post_state(repo: Path) -> None:
     claim = _claim(repo)
     append(repo, claim)
     (repo / "app.py").write_text("VALUE = 2\n")
-    with pytest.raises(Fab7Error, match="FAB7_REPOSITORY_DIRTY"):
+    with pytest.raises(CuffError, match="CUFF_REPOSITORY_DIRTY"):
         verify(repo, "work-1", str(claim["id"]), [sys.executable, "-c", "pass"])
     (repo / "app.py").write_text("VALUE = 1\n")
 
-    with pytest.raises(Fab7Error, match="FAB7_REPOSITORY_DIRTY"):
+    with pytest.raises(CuffError, match="CUFF_REPOSITORY_DIRTY"):
         verify(
             repo,
             "work-1",
@@ -251,7 +251,7 @@ def test_git_verification_rejects_changed_head(repo: Path) -> None:
     claim = _claim(repo)
     append(repo, claim)
 
-    with pytest.raises(Fab7Error, match="FAB7_REPOSITORY_CHANGED"):
+    with pytest.raises(CuffError, match="CUFF_REPOSITORY_CHANGED"):
         verify(
             repo,
             "work-1",
@@ -273,13 +273,13 @@ def test_verify_drift_launch_failure_interruption_and_concurrency_append_no_evid
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     init(repo)
-    from fab7.subject import filesystem_subject
+    from cuff.subject import filesystem_subject
 
     real_observe = ledger_module.observe_command
     subject = filesystem_subject(repo, repo / "app.py")
     claim = create_claim(repo, "work-1", "Done", subject, "agent:test")
     append(repo, claim)
-    with pytest.raises(Fab7Error, match="FAB7_SUBJECT_CHANGED"):
+    with pytest.raises(CuffError, match="CUFF_SUBJECT_CHANGED"):
         verify(
             repo,
             "work-1",
@@ -289,8 +289,8 @@ def test_verify_drift_launch_failure_interruption_and_concurrency_append_no_evid
     (repo / "app.py").write_text("VALUE = 1\n")
     assert [record["type"] for record in read(repo, "work-1")] == ["claim"]
 
-    with pytest.raises(Fab7Error, match="FAB7_COMMAND_FAILED"):
-        verify(repo, "work-1", str(claim["id"]), ["fab7-command-that-does-not-exist"])
+    with pytest.raises(CuffError, match="CUFF_COMMAND_FAILED"):
+        verify(repo, "work-1", str(claim["id"]), ["cuff-command-that-does-not-exist"])
     assert [record["type"] for record in read(repo, "work-1")] == ["claim"]
 
     monkeypatch.setattr(
@@ -310,7 +310,7 @@ def test_verify_drift_launch_failure_interruption_and_concurrency_append_no_evid
         return observation
 
     monkeypatch.setattr(ledger_module, "observe_command", concurrent)
-    with pytest.raises(Fab7Error, match="FAB7_CONCURRENT_UPDATE"):
+    with pytest.raises(CuffError, match="CUFF_CONCURRENT_UPDATE"):
         verify(repo, "work-1", str(claim["id"]), [sys.executable, "-c", "pass"])
     assert [record["type"] for record in read(repo, "work-1")] == ["claim", "claim"]
 
@@ -344,10 +344,10 @@ def test_seal_drift_launch_failure_and_interruption_append_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     init(repo)
-    from fab7.subject import filesystem_subject
+    from cuff.subject import filesystem_subject
 
     subject = filesystem_subject(repo, repo / "app.py")
-    with pytest.raises(Fab7Error, match="FAB7_SUBJECT_CHANGED"):
+    with pytest.raises(CuffError, match="CUFF_SUBJECT_CHANGED"):
         seal(
             repo,
             "work-1",
@@ -361,7 +361,7 @@ def test_seal_drift_launch_failure_and_interruption_append_nothing(
 
 def test_seal_git_dirty_and_head_drift_append_nothing(repo: Path) -> None:
     init(repo)
-    with pytest.raises(Fab7Error, match="FAB7_REPOSITORY_DIRTY"):
+    with pytest.raises(CuffError, match="CUFF_REPOSITORY_DIRTY"):
         seal(
             repo,
             "work-1",
@@ -372,7 +372,7 @@ def test_seal_git_dirty_and_head_drift_append_nothing(repo: Path) -> None:
     (repo / "dirty").unlink()
     assert read(repo, "work-1") == []
 
-    with pytest.raises(Fab7Error, match="FAB7_REPOSITORY_CHANGED"):
+    with pytest.raises(CuffError, match="CUFF_REPOSITORY_CHANGED"):
         seal(
             repo,
             "work-1",
@@ -396,8 +396,8 @@ def test_seal_launch_failure_and_interruption_append_nothing(
 ) -> None:
     init(repo)
 
-    with pytest.raises(Fab7Error, match="FAB7_COMMAND_FAILED"):
-        seal(repo, "work-1", "Done", SUBJECT, ["fab7-command-that-does-not-exist"])
+    with pytest.raises(CuffError, match="CUFF_COMMAND_FAILED"):
+        seal(repo, "work-1", "Done", SUBJECT, ["cuff-command-that-does-not-exist"])
     assert read(repo, "work-1") == []
 
     monkeypatch.setattr(
@@ -423,7 +423,7 @@ def test_seal_rejects_concurrent_append_and_preserves_other_writer(
         return observation
 
     monkeypatch.setattr(ledger_module, "observe_command", concurrent)
-    with pytest.raises(Fab7Error, match="FAB7_CONCURRENT_UPDATE"):
+    with pytest.raises(CuffError, match="CUFF_CONCURRENT_UPDATE"):
         seal(repo, "work-1", "Done", SUBJECT, [sys.executable, "-c", "pass"])
 
     records = read(repo, "work-1")
@@ -437,5 +437,5 @@ def test_ledger_symlinks_are_rejected(repo: Path, tmp_path: Path) -> None:
     outside.write_text("")
     (directory / "work-1.jsonl").symlink_to(outside)
 
-    with pytest.raises(Fab7Error, match="FAB7_PATH_INVALID"):
+    with pytest.raises(CuffError, match="CUFF_PATH_INVALID"):
         read(repo, "work-1")

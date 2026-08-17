@@ -1,5 +1,5 @@
 ---
-title: Fab7 Product Vision
+title: Cuff Product Vision
 type: product
 status: accepted
 owner: product
@@ -10,9 +10,9 @@ authority_for:
   - explicit non-goals
 ---
 
-# Fab7 product vision
+# Cuff product vision
 
-Fab7 makes one narrow promise:
+Cuff makes one narrow promise:
 
 > Record a claim for one exact subject, execute one caller-selected verifier,
 > record the observation, and later determine whether the latest claim still
@@ -20,7 +20,7 @@ Fab7 makes one narrow promise:
 
 The product is a hard proof requirement that richer workflows compose. A
 completion statement is not evidence. A caller receives a useful receipt only
-when Fab7 directly observed a stable verifier result for the same subject and
+when Cuff directly observed a stable verifier result for the same subject and
 Git commit.
 
 ## Principles
@@ -36,12 +36,12 @@ Git commit.
 
 Extensions such as Denim own semantic review, coverage, goal drift, and their
 immutable domain state. After those checks, an extension calls the public
-Fab7 executable for the exact subject and validates the returned JSON receipt.
-Fab7 does not know the extension's name, schema, state, or verifier semantics.
+Cuff executable for the exact subject and validates the returned JSON receipt.
+Cuff does not know the extension's name, schema, state, or verifier semantics.
 
 ## Explicit non-goals
 
-Fab7 is not an extension hub, plugin installer, native builder, managed Python
+Cuff is not an extension hub, plugin installer, native builder, managed Python
 distribution, verifier registry, callback framework, provenance provider
 system, database, service, dashboard, planner, approval engine, release tool,
 or deployment operator. It adds no compatibility aliases, automatic

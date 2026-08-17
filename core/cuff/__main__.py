@@ -1,4 +1,4 @@
-from fab7.cli import main
+from cuff.cli import main
 
 
 raise SystemExit(main())

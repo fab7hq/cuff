@@ -22,7 +22,7 @@ def git(root: Path, *args: str) -> str:
 @pytest.fixture
 def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     git(tmp_path, "init", "-q")
-    git(tmp_path, "config", "user.name", "Fab7 Test")
+    git(tmp_path, "config", "user.name", "Cuff Test")
     git(tmp_path, "config", "user.email", "test@example.com")
     (tmp_path / "app.py").write_text("VALUE = 1\n")
     git(tmp_path, "add", "app.py")

@@ -17,11 +17,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator
 
-from .errors import Fab7Error
+from .errors import CuffError
 from .subject import SHA256_RE, current_subject, validate_subject
 
 
-RECORDS_DIR = ".fab7/records"
+RECORDS_DIR = ".cuff/records"
 WORK_ITEM_RE = re.compile(r"^[a-z0-9_.-]{1,120}$")
 RECORD_ID_RE = re.compile(r"^rec_[0-9a-f]{32}$")
 GIT_OID_RE = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
@@ -75,24 +75,24 @@ class Sealing:
 
 def normalize_work_item(value: str | None) -> str:
     if value is None:
-        raise Fab7Error("FAB7_WORK_ITEM_REQUIRED", "A work item is required")
+        raise CuffError("CUFF_WORK_ITEM_REQUIRED", "A work item is required")
     if not isinstance(value, str):
-        raise Fab7Error("FAB7_WORK_ITEM_INVALID", "Work item must be a short workspace-safe name")
+        raise CuffError("CUFF_WORK_ITEM_INVALID", "Work item must be a short workspace-safe name")
     normalized = re.sub(r"[^a-z0-9_.-]+", "-", value.strip().lower()).strip("-")
     if not normalized or normalized in {".", ".."} or WORK_ITEM_RE.fullmatch(normalized) is None:
-        raise Fab7Error("FAB7_WORK_ITEM_INVALID", "Work item must be a short workspace-safe name")
+        raise CuffError("CUFF_WORK_ITEM_INVALID", "Work item must be a short workspace-safe name")
     return normalized
 
 
 def resolve_actor(explicit: str | None) -> str:
-    actor = explicit if explicit is not None else os.environ.get("FAB7_ACTOR")
+    actor = explicit if explicit is not None else os.environ.get("CUFF_ACTOR")
     return _bounded_text(actor if actor is not None else "human:unknown", "actor", MAX_ACTOR_BYTES)
 
 
 def init(root: Path) -> Path:
     path = root / RECORDS_DIR
-    if (root / ".fab7").is_symlink() or path.is_symlink():
-        raise Fab7Error("FAB7_PATH_INVALID", "Fab7 workspace directories must not be symlinks")
+    if (root / ".cuff").is_symlink() or path.is_symlink():
+        raise CuffError("CUFF_PATH_INVALID", "Cuff workspace directories must not be symlinks")
     path.mkdir(parents=True, exist_ok=True)
     read_all(root)
     return path
@@ -141,7 +141,7 @@ def verify(
         None,
     )
     if claim is None:
-        raise Fab7Error("FAB7_CLAIM_UNKNOWN", "Evidence must link to a claim in the same work item")
+        raise CuffError("CUFF_CLAIM_UNKNOWN", "Evidence must link to a claim in the same work item")
     expected = baseline(root, normalized)
     subject = _capture_subject(root, claim["subject"])
     git_state = _capture_git(root)
@@ -219,7 +219,7 @@ def observe_command(root: Path, command: list[str], *, timeout: float = 300) -> 
                 stderr=stderr_file,
             )
         except OSError as exc:
-            raise Fab7Error("FAB7_COMMAND_FAILED", f"Verification command could not start: {exc}") from exc
+            raise CuffError("CUFF_COMMAND_FAILED", f"Verification command could not start: {exc}") from exc
         try:
             exit_code = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -248,24 +248,24 @@ def append_many(
     expected: LedgerBaseline | None = None,
 ) -> tuple[Path, list[int]]:
     if not records:
-        raise Fab7Error("FAB7_LEDGER_INVALID", "At least one record is required")
+        raise CuffError("CUFF_LEDGER_INVALID", "At least one record is required")
     for record in records:
         validate_record(record)
     work_items = {record["work_item"] for record in records}
     if len(work_items) != 1:
-        raise Fab7Error("FAB7_LEDGER_INVALID", "Atomic records must share one work item")
+        raise CuffError("CUFF_LEDGER_INVALID", "Atomic records must share one work item")
     work_item = next(iter(work_items))
     path = record_path(root, work_item)
     directory = root / RECORDS_DIR
     if not directory.is_dir():
-        raise Fab7Error("FAB7_NOT_INITIALIZED", "Run fab7 init first")
+        raise CuffError("CUFF_NOT_INITIALIZED", "Run cuff init first")
     if directory.is_symlink() or path.is_symlink():
-        raise Fab7Error("FAB7_PATH_INVALID", "Fab7 ledgers must not be symlinks")
+        raise CuffError("CUFF_PATH_INVALID", "Cuff ledgers must not be symlinks")
     with _lock(path):
         existing = path.read_bytes() if path.exists() else b""
         if expected is not None and _content_baseline(existing) != expected:
-            raise Fab7Error(
-                "FAB7_CONCURRENT_UPDATE",
+            raise CuffError(
+                "CUFF_CONCURRENT_UPDATE",
                 "The ledger changed while verification was running",
             )
         prior = _parse(existing, path)
@@ -281,12 +281,12 @@ def read(root: Path, work_item: str) -> list[dict[str, Any]]:
     normalized = normalize_work_item(work_item)
     directory = root / RECORDS_DIR
     if directory.is_symlink():
-        raise Fab7Error("FAB7_PATH_INVALID", "Fab7 records directory must not be a symlink")
+        raise CuffError("CUFF_PATH_INVALID", "Cuff records directory must not be a symlink")
     path = record_path(root, normalized)
     if not path.exists():
         return []
     if path.is_symlink():
-        raise Fab7Error("FAB7_PATH_INVALID", "Fab7 ledgers must not be symlinks")
+        raise CuffError("CUFF_PATH_INVALID", "Cuff ledgers must not be symlinks")
     records = _parse(path.read_bytes(), path)
     _require_ledger_work_item(records, normalized, path)
     return records
@@ -295,13 +295,13 @@ def read(root: Path, work_item: str) -> list[dict[str, Any]]:
 def read_all(root: Path) -> dict[str, list[dict[str, Any]]]:
     directory = root / RECORDS_DIR
     if not directory.is_dir():
-        raise Fab7Error("FAB7_NOT_INITIALIZED", "Run fab7 init first")
+        raise CuffError("CUFF_NOT_INITIALIZED", "Run cuff init first")
     if directory.is_symlink():
-        raise Fab7Error("FAB7_PATH_INVALID", "Fab7 records directory must not be a symlink")
+        raise CuffError("CUFF_PATH_INVALID", "Cuff records directory must not be a symlink")
     ledgers: dict[str, list[dict[str, Any]]] = {}
     for path in sorted(directory.glob("*.jsonl")):
         if path.is_symlink():
-            raise Fab7Error("FAB7_PATH_INVALID", "Fab7 ledgers must not be symlinks", {"path": str(path)})
+            raise CuffError("CUFF_PATH_INVALID", "Cuff ledgers must not be symlinks", {"path": str(path)})
         work_item = normalize_work_item(path.stem)
         records = _parse(path.read_bytes(), path)
         _require_ledger_work_item(records, work_item, path)
@@ -311,11 +311,11 @@ def read_all(root: Path) -> dict[str, list[dict[str, Any]]]:
 
 def validate_record(record: Any) -> None:
     if not isinstance(record, dict):
-        raise Fab7Error("FAB7_LEDGER_INVALID", "Each JSONL line must be an object")
+        raise CuffError("CUFF_LEDGER_INVALID", "Each JSONL line must be an object")
     if "git_ref" in record:
-        raise Fab7Error(
-            "FAB7_LEDGER_INVALID",
-            "Ledger schema is incompatible; archive or remove .fab7 and run fab7 init",
+        raise CuffError(
+            "CUFF_LEDGER_INVALID",
+            "Ledger schema is incompatible; archive or remove .cuff and run cuff init",
         )
     record_type = record.get("type")
     allowed = (
@@ -326,8 +326,8 @@ def validate_record(record: Any) -> None:
         else set()
     )
     if not allowed or set(record) != allowed:
-        raise Fab7Error(
-            "FAB7_LEDGER_INVALID",
+        raise CuffError(
+            "CUFF_LEDGER_INVALID",
             "Record fields or type are invalid",
             {"record_id": record.get("id")},
         )
@@ -336,9 +336,9 @@ def validate_record(record: Any) -> None:
         or not isinstance(record.get("id"), str)
         or RECORD_ID_RE.fullmatch(record["id"]) is None
     ):
-        raise Fab7Error("FAB7_LEDGER_INVALID", "Record version or id is invalid")
+        raise CuffError("CUFF_LEDGER_INVALID", "Record version or id is invalid")
     if normalize_work_item(record.get("work_item")) != record["work_item"]:
-        raise Fab7Error("FAB7_LEDGER_INVALID", "Work item is not canonical")
+        raise CuffError("CUFF_LEDGER_INVALID", "Work item is not canonical")
     _validate_timestamp(record.get("created_at"))
     _bounded_text(record.get("actor"), "actor", MAX_ACTOR_BYTES)
     if record_type == "claim":
@@ -346,12 +346,12 @@ def validate_record(record: Any) -> None:
         validate_subject(record.get("subject"))
         return
     if not isinstance(record["claim"], str) or RECORD_ID_RE.fullmatch(record["claim"]) is None:
-        raise Fab7Error("FAB7_LEDGER_INVALID", "Evidence claim link is invalid")
+        raise CuffError("CUFF_LEDGER_INVALID", "Evidence claim link is invalid")
     if type(record["exit_code"]) is not int:
-        raise Fab7Error("FAB7_LEDGER_INVALID", "Evidence exit_code must be an integer")
+        raise CuffError("CUFF_LEDGER_INVALID", "Evidence exit_code must be an integer")
     for field in ("subject_digest", "command_digest", "output_digest"):
         if not isinstance(record[field], str) or SHA256_RE.fullmatch(record[field]) is None:
-            raise Fab7Error("FAB7_LEDGER_INVALID", f"Evidence {field} is invalid")
+            raise CuffError("CUFF_LEDGER_INVALID", f"Evidence {field} is invalid")
     _validate_provenance(record["provenance"])
 
 
@@ -391,18 +391,18 @@ def _parse(content: bytes, path: Path) -> list[dict[str, Any]]:
     if not content:
         return []
     if not content.endswith(b"\n"):
-        raise Fab7Error("FAB7_LEDGER_INVALID", "JSONL ledger must end with a newline", {"path": str(path)})
+        raise CuffError("CUFF_LEDGER_INVALID", "JSONL ledger must end with a newline", {"path": str(path)})
     records: list[dict[str, Any]] = []
     for line_number, raw in enumerate(content.splitlines(), 1):
         try:
             record = json.loads(raw, object_pairs_hook=_no_duplicate_keys)
             validate_record(record)
         except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
-            raise Fab7Error(
-                "FAB7_LEDGER_INVALID", "Ledger contains invalid JSON", {"path": str(path), "line": line_number}
+            raise CuffError(
+                "CUFF_LEDGER_INVALID", "Ledger contains invalid JSON", {"path": str(path), "line": line_number}
             ) from exc
-        except Fab7Error as exc:
-            raise Fab7Error(
+        except CuffError as exc:
+            raise CuffError(
                 exc.code,
                 exc.message,
                 {**exc.context, "path": str(path), "line": line_number},
@@ -410,7 +410,7 @@ def _parse(content: bytes, path: Path) -> list[dict[str, Any]]:
         records.append(record)
     ids = [record["id"] for record in records]
     if len(ids) != len(set(ids)):
-        raise Fab7Error("FAB7_LEDGER_INVALID", "Ledger contains duplicate record ids", {"path": str(path)})
+        raise CuffError("CUFF_LEDGER_INVALID", "Ledger contains duplicate record ids", {"path": str(path)})
     claims: dict[str, dict[str, Any]] = {}
     for record in records:
         if record["type"] == "claim":
@@ -418,20 +418,20 @@ def _parse(content: bytes, path: Path) -> list[dict[str, Any]]:
             continue
         claim = claims.get(record["claim"])
         if claim is None:
-            raise Fab7Error(
-                "FAB7_LEDGER_INVALID",
+            raise CuffError(
+                "CUFF_LEDGER_INVALID",
                 "Evidence links to an unknown claim",
                 {"record_id": record["id"]},
             )
         if record["work_item"] != claim["work_item"]:
-            raise Fab7Error(
-                "FAB7_LEDGER_INVALID",
+            raise CuffError(
+                "CUFF_LEDGER_INVALID",
                 "Evidence work item differs from its claim",
                 {"record_id": record["id"]},
             )
         if record["subject_digest"] != claim["subject"]["digest"]:
-            raise Fab7Error(
-                "FAB7_LEDGER_INVALID",
+            raise CuffError(
+                "CUFF_LEDGER_INVALID",
                 "Evidence subject digest differs from its claim",
                 {"record_id": record["id"]},
             )
@@ -444,8 +444,8 @@ def _require_ledger_work_item(
     path: Path,
 ) -> None:
     if any(record["work_item"] != work_item for record in records):
-        raise Fab7Error(
-            "FAB7_LEDGER_INVALID",
+        raise CuffError(
+            "CUFF_LEDGER_INVALID",
             "Record work item does not match its ledger",
             {"path": str(path)},
         )
@@ -455,21 +455,21 @@ def _capture_subject(root: Path, subject: dict[str, str]) -> dict[str, str]:
     declared = validate_subject(subject)
     observed = current_subject(root, declared)
     if observed["digest"] != declared["digest"]:
-        raise Fab7Error("FAB7_SUBJECT_CHANGED", "Filesystem subject does not match its declared digest")
+        raise CuffError("CUFF_SUBJECT_CHANGED", "Filesystem subject does not match its declared digest")
     return declared
 
 
 def _require_unchanged_subject(root: Path, subject: dict[str, str]) -> None:
     try:
         observed = current_subject(root, subject)
-    except Fab7Error as exc:
-        raise Fab7Error(
-            "FAB7_SUBJECT_CHANGED",
+    except CuffError as exc:
+        raise CuffError(
+            "CUFF_SUBJECT_CHANGED",
             "Subject changed during verification; no evidence was recorded",
         ) from exc
     if observed != subject:
-        raise Fab7Error(
-            "FAB7_SUBJECT_CHANGED",
+        raise CuffError(
+            "CUFF_SUBJECT_CHANGED",
             "Subject changed during verification; no evidence was recorded",
         )
 
@@ -480,15 +480,15 @@ def _capture_git(root: Path) -> tuple[Path, str]:
     workspace = root.resolve()
     repository = git.repo_root(workspace)
     if repository != workspace:
-        raise Fab7Error(
-            "FAB7_WORKSPACE_NOT_ROOT",
-            "Fab7 workspace must be the Git worktree root",
+        raise CuffError(
+            "CUFF_WORKSPACE_NOT_ROOT",
+            "Cuff workspace must be the Git worktree root",
             {"workspace": str(workspace), "repository": str(repository)},
         )
     dirty = [path for path in git.dirty_paths(repository) if not _is_record_path(repository, root, path)]
     if dirty:
-        raise Fab7Error(
-            "FAB7_REPOSITORY_DIRTY",
+        raise CuffError(
+            "CUFF_REPOSITORY_DIRTY",
             "Commit or remove non-ledger changes before Git-provenance verification",
             {"paths": dirty},
         )
@@ -502,14 +502,14 @@ def _finish_provenance(root: Path, state: tuple[Path, str]) -> dict[str, str]:
     current_repository = git.repo_root(root)
     current_commit = git.head(current_repository)
     if current_repository != repository or current_commit != commit:
-        raise Fab7Error(
-            "FAB7_REPOSITORY_CHANGED",
+        raise CuffError(
+            "CUFF_REPOSITORY_CHANGED",
             "Verification command changed Git HEAD; no evidence was recorded",
         )
     dirty = [path for path in git.dirty_paths(repository) if not _is_record_path(repository, root, path)]
     if dirty:
-        raise Fab7Error(
-            "FAB7_REPOSITORY_DIRTY",
+        raise CuffError(
+            "CUFF_REPOSITORY_DIRTY",
             "Verification command left non-ledger Git changes; no evidence was recorded",
             {"paths": dirty},
         )
@@ -527,48 +527,48 @@ def _is_record_path(repository: Path, root: Path, path: str) -> bool:
 
 def _validate_provenance(value: Any) -> dict[str, str]:
     if not isinstance(value, dict):
-        raise Fab7Error("FAB7_LEDGER_INVALID", "Evidence provenance must be an object")
+        raise CuffError("CUFF_LEDGER_INVALID", "Evidence provenance must be an object")
     if set(value) == {"kind", "commit"} and value.get("kind") == "git":
         commit = value.get("commit")
         if isinstance(commit, str) and GIT_OID_RE.fullmatch(commit) is not None:
             return value
-    raise Fab7Error("FAB7_LEDGER_INVALID", "Evidence provenance is invalid")
+    raise CuffError("CUFF_LEDGER_INVALID", "Evidence provenance is invalid")
 
 
 def _validate_command(command: list[str], timeout: float) -> None:
     if not command:
-        raise Fab7Error("FAB7_COMMAND_REQUIRED", "Pass a verification command after --")
+        raise CuffError("CUFF_COMMAND_REQUIRED", "Pass a verification command after --")
     if (
         len(command) > MAX_COMMAND_ARGUMENTS
         or any(not isinstance(argument, str) or not argument or "\0" in argument for argument in command)
         or sum(len(argument.encode()) for argument in command) > MAX_COMMAND_BYTES
     ):
-        raise Fab7Error("FAB7_COMMAND_INVALID", "Verification command exceeds its argument bounds")
+        raise CuffError("CUFF_COMMAND_INVALID", "Verification command exceeds its argument bounds")
     if not math.isfinite(timeout) or timeout <= 0:
-        raise Fab7Error("FAB7_TIMEOUT_INVALID", "Verification timeout must be a positive number")
+        raise CuffError("CUFF_TIMEOUT_INVALID", "Verification timeout must be a positive number")
 
 
 def _validate_timestamp(value: Any) -> None:
     if not isinstance(value, str) or not value.endswith("Z"):
-        raise Fab7Error("FAB7_LEDGER_INVALID", "created_at must be a UTC timestamp ending in Z")
+        raise CuffError("CUFF_LEDGER_INVALID", "created_at must be a UTC timestamp ending in Z")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise Fab7Error("FAB7_LEDGER_INVALID", "created_at must be an ISO timestamp") from exc
+        raise CuffError("CUFF_LEDGER_INVALID", "created_at must be an ISO timestamp") from exc
     if parsed.utcoffset() != UTC.utcoffset(parsed):
-        raise Fab7Error("FAB7_LEDGER_INVALID", "created_at must be UTC")
+        raise CuffError("CUFF_LEDGER_INVALID", "created_at must be UTC")
 
 
 def _bounded_text(value: Any, field: str, maximum: int) -> str:
     if not isinstance(value, str) or not value or len(value.encode("utf-8")) > maximum:
-        raise Fab7Error("FAB7_LEDGER_INVALID", f"Record {field} must be bounded nonempty text")
+        raise CuffError("CUFF_LEDGER_INVALID", f"Record {field} must be bounded nonempty text")
     if any(ord(character) < 32 or ord(character) == 127 for character in value):
-        raise Fab7Error("FAB7_LEDGER_INVALID", f"Record {field} must not contain controls")
+        raise CuffError("CUFF_LEDGER_INVALID", f"Record {field} must not contain controls")
     return value
 
 
 def _output_digest(stdout: Any, stderr: Any) -> str:
-    digest = hashlib.sha256(b"fab7-output-1\0")
+    digest = hashlib.sha256(b"cuff-output-1\0")
     for handle in (stdout, stderr):
         length = handle.seek(0, os.SEEK_END)
         digest.update(length.to_bytes(8, "big"))
@@ -632,7 +632,7 @@ def _lock(path: Path) -> Iterator[None]:
             break
         except FileExistsError:
             if time.monotonic() >= deadline:
-                raise Fab7Error("FAB7_LEDGER_BUSY", "Another writer holds the ledger lock")
+                raise CuffError("CUFF_LEDGER_BUSY", "Another writer holds the ledger lock")
             time.sleep(0.05)
     try:
         yield

@@ -1,16 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "fab7hq",
-  "description": "Fab7 host integrations for local proof workflows.",
+  "description": "Fab7 host integrations for local Cuff proof workflows.",
   "owner": {
     "name": "Fab7"
   },
   "plugins": [
     {
-      "name": "fab7",
-      "description": "Initialize, seal, and check local Fab7 proof.",
+      "name": "cuff",
+      "description": "Initialize, seal, and check local Cuff proof.",
       "version": "0.1.0",
-      "source": "./plugins/claude/fab7",
+      "source": "./plugins/claude/cuff",
       "category": "productivity"
     }
   ]

@@ -1,11 +1,11 @@
-# Fab7 GitHub Action
+# Cuff GitHub Action
 
-The composite Action installs a selected released `fab7-cli` package with uv
-and delegates the decision to the public `fab7 check` command. It contains no
+The composite Action installs a selected released `cuff-cli` package with uv
+and delegates the decision to the public `cuff check` command. It contains no
 second readiness implementation, initialization, native build, or host plugin
 logic.
 
-The consumer must track an initialized `.fab7/project.json`, preserve full Git
+The consumer must track an initialized `.cuff/project.json`, preserve full Git
 history, and pass the work item and comparison refs explicitly:
 
 ```yaml
@@ -13,7 +13,7 @@ history, and pass the work item and comparison refs explicitly:
   with:
     fetch-depth: 0
 
-- uses: fab7hq/fab7/action@v0.1.0
+- uses: fab7hq/cuff/action@v0.1.0
   with:
     version: "0.1.0"
     working-directory: "."
