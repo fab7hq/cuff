@@ -1,0 +1,20 @@
+{
+  "name": "fab7hq",
+  "interface": {
+    "displayName": "Fab7"
+  },
+  "plugins": [
+    {
+      "name": "cuff",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex/cuff"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

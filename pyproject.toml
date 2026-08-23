@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cuff-cli"
+version = "0.1.0"
+description = "Cuff subject-bound claim, evidence, and verification gate."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "Fab7" }]
+dependencies = []
+
+[project.scripts]
+cuff = "cuff.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.cuff]
+recommended-uv-version = "0.11.32"
+
+[tool.setuptools]
+package-dir = { "" = "core" }
+
+[tool.setuptools.packages.find]
+where = ["core"]
+include = ["cuff*"]
+
+
+[tool.pytest.ini_options]
+pythonpath = ["core"]
+testpaths = ["core/tests"]
+addopts = "-q"

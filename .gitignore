@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+dist/
+/build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+.env*
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# This source repository does not dogfood its own proof ledger. Consumer
+# repositories commit `.fab7/cuff/records/` when they adopt the gate.
+/.fab7/
+.claude/
+.codex/
+.cursor/
+.agents/*
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json

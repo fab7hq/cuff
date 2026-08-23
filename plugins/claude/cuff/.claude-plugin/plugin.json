@@ -1,0 +1,17 @@
+{
+  "name": "cuff",
+  "version": "0.1.0",
+  "description": "Initialize and use the local Cuff proof CLI.",
+  "author": {
+    "name": "Fab7",
+    "url": "https://github.com/fab7hq"
+  },
+  "homepage": "https://github.com/fab7hq/cuff",
+  "repository": "https://github.com/fab7hq/cuff",
+  "license": "Apache-2.0",
+  "keywords": [
+    "proof",
+    "verification",
+    "git"
+  ]
+}

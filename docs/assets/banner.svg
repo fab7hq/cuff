@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 360" width="100%" height="auto">
+  <defs>
+    <pattern id="cuff-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M20 0H0V20" fill="none" stroke="#162032" stroke-width=".7" stroke-dasharray="2 3"/>
+    </pattern>
+    <filter id="cuff-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      @keyframes cuff-feed { to { stroke-dashoffset: -28; } }
+      @keyframes cuff-press { 0%, 100% { transform: translateY(-7px); } 50% { transform: translateY(7px); } }
+      @keyframes cuff-dial { to { transform: rotate(360deg); } }
+      @keyframes cuff-stamp { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+      .feed { animation: cuff-feed 1.7s linear infinite; }
+      .press { animation: cuff-press 1.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+      .dial { animation: cuff-dial 9s linear infinite; transform-box: fill-box; transform-origin: center; }
+      .stamp { animation: cuff-stamp 1.8s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .feed, .press, .dial, .stamp { animation: none; }
+      }
+    </style>
+  </defs>
+
+  <rect width="840" height="360" rx="8" fill="#090d16"/>
+  <rect x="10" y="10" width="820" height="335" rx="6" fill="url(#cuff-grid)" stroke="#253550"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <text x="30" y="38" fill="#58a6ff" font-size="9" font-weight="700" letter-spacing="1.4">CHECK // BIND THE SUBJECT</text>
+    <text x="290" y="38" fill="#39c5bb" font-size="9" font-weight="700" letter-spacing="1.4">CHECK // OBSERVE THE VERIFIER</text>
+    <text x="610" y="38" fill="#3fb950" font-size="9" font-weight="700" letter-spacing="1.4">CHECK // REQUIRE FRESH EVIDENCE</text>
+
+    <g transform="translate(0 45)">
+      <line x1="252" y1="18" x2="252" y2="242" stroke="#253550" stroke-dasharray="4 4"/>
+      <line x1="574" y1="18" x2="574" y2="242" stroke="#253550" stroke-dasharray="4 4"/>
+
+      <g>
+        <path d="M57 55H198L220 77V209H57Z" fill="#101726" stroke="#58a6ff" stroke-width="1.4"/>
+        <path d="M198 55V77H220" fill="none" stroke="#58a6ff"/>
+        <rect x="77" y="79" width="87" height="7" rx="2" fill="#58a6ff" opacity=".65"/>
+        <line x1="77" y1="105" x2="197" y2="105" stroke="#253550" stroke-width="2"/>
+        <line x1="77" y1="123" x2="181" y2="123" stroke="#253550" stroke-width="2"/>
+        <line x1="77" y1="141" x2="197" y2="141" stroke="#253550" stroke-width="2"/>
+        <line x1="77" y1="159" x2="181" y2="159" stroke="#253550" stroke-width="2"/>
+        <rect x="77" y="179" width="123" height="15" rx="3" fill="#090d16" stroke="#253550"/>
+        <text x="138.5" y="189.5" text-anchor="middle" fill="#8b949e" font-size="7">SUBJECT DIGEST</text>
+        <circle cx="206" cy="197" r="14" fill="#090d16" stroke="#58a6ff" stroke-dasharray="3 3"/>
+        <path d="M199 197L204 202L214 190" fill="none" stroke="#58a6ff" stroke-width="2"/>
+        <text x="138" y="230" text-anchor="middle" fill="#8b949e" font-size="8" letter-spacing=".6">WORK ITEM + DECLARED / FILE / TREE</text>
+      </g>
+
+      <path class="feed" d="M220 105C248 105 265 115 291 115" fill="none" stroke="#58a6ff" stroke-width="1.4" stroke-dasharray="5 5"/>
+      <path class="feed" d="M220 129C248 129 265 133 291 133" fill="none" stroke="#58a6ff" stroke-width="1.4" stroke-dasharray="5 5"/>
+      <path class="feed" d="M220 153C248 153 265 151 291 151" fill="none" stroke="#58a6ff" stroke-width="1.4" stroke-dasharray="5 5"/>
+
+      <g>
+        <rect x="286" y="42" width="254" height="204" rx="8" fill="none" stroke="#388bfd" stroke-dasharray="5 5" opacity=".75"/>
+        <g class="press">
+          <rect x="319" y="58" width="188" height="22" rx="4" fill="#162032" stroke="#39c5bb"/>
+          <path d="M342 80V102M390 80V102M438 80V102M486 80V102" stroke="#39c5bb" stroke-width="2"/>
+          <path d="M335 102H493L477 117H351Z" fill="#090d16" stroke="#39c5bb"/>
+        </g>
+        <rect x="335" y="132" width="158" height="26" rx="13" fill="#090d16" stroke="#39c5bb" stroke-width="1.5"/>
+        <circle cx="414" cy="145" r="5" fill="#39c5bb" filter="url(#cuff-glow)"/>
+        <path d="M351 172H477L493 187H335Z" fill="#090d16" stroke="#39c5bb"/>
+        <rect x="319" y="187" width="188" height="18" rx="3" fill="#162032" stroke="#39c5bb"/>
+        <text x="414" y="230" text-anchor="middle" fill="#8b949e" font-size="7.5" letter-spacing=".6">LITERAL ARGV // EXIT // OUTPUT DIGEST // HEAD</text>
+      </g>
+
+      <path class="feed" d="M540 139H603" fill="none" stroke="#3fb950" stroke-width="2" stroke-dasharray="6 5"/>
+      <path d="M596 134L603 139L596 144" fill="none" stroke="#3fb950"/>
+
+      <g>
+        <circle cx="700" cy="137" r="83" fill="#090d16" stroke="#253550"/>
+        <circle class="dial" cx="700" cy="137" r="66" fill="none" stroke="#3fb950" stroke-width="2" stroke-dasharray="4 7"/>
+        <circle cx="700" cy="137" r="48" fill="#090d16" stroke="#3fb950" opacity=".8"/>
+        <path d="M700 137L729 109" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="700" cy="137" r="6" fill="#3fb950" filter="url(#cuff-glow)"/>
+        <rect x="660" y="160" width="80" height="20" rx="3" fill="#101726" stroke="#3fb950"/>
+        <text class="stamp" x="700" y="174" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="700">PASS + FRESH</text>
+        <text x="700" y="230" text-anchor="middle" fill="#8b949e" font-size="8" letter-spacing=".6">LATEST LINK // SUBJECT // GIT STATE</text>
+      </g>
+    </g>
+
+    <text x="18" y="339" fill="#8b949e" font-size="8" letter-spacing="1.2">AKML-7 // FIG 2.1</text>
+    <text x="822" y="339" text-anchor="end" fill="#8b949e" font-size="8" letter-spacing="1.2">ONE CLAIM + ONE OBSERVATION // CHECK LATER</text>
+  </g>
+</svg>

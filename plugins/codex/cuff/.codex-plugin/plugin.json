@@ -1,0 +1,34 @@
+{
+  "name": "cuff",
+  "version": "0.1.0",
+  "description": "Initialize and use the local Cuff proof CLI.",
+  "author": {
+    "name": "Fab7",
+    "url": "https://github.com/fab7hq"
+  },
+  "homepage": "https://github.com/fab7hq/cuff",
+  "repository": "https://github.com/fab7hq/cuff",
+  "license": "Apache-2.0",
+  "keywords": [
+    "proof",
+    "verification",
+    "git"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Cuff",
+    "shortDescription": "Record Git-anchored proof for exact subjects.",
+    "longDescription": "Use the Cuff executable to initialize a proof workspace, atomically seal a claim with verifier evidence, and check readiness.",
+    "developerName": "Fab7",
+    "category": "Productivity",
+    "capabilities": [
+      "Local CLI",
+      "Verification"
+    ],
+    "defaultPrompt": [
+      "Initialize Cuff in this Git workspace.",
+      "Seal this exact subject with Cuff.",
+      "Check Cuff readiness for this work item."
+    ]
+  }
+}
