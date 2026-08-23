@@ -385,7 +385,10 @@ def invoke_host(
         )
     return run(
         [
-            "codex", "exec", "--ephemeral", "--json", "-C", str(consumer),
+            "codex", "exec", "--ephemeral", "--json",
+            "-c", "shell_environment_policy.inherit=all",
+            "-c", f"shell_environment_policy.set.PATH={json.dumps(env.get('PATH', ''))}",
+            "-C", str(consumer),
             "Use $cuff:check for work item release-e2e. Run the installed skill now and return "
             "only its exact stdout JSON document, with no markdown or commentary.", "--model", model,
         ],
