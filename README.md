@@ -27,7 +27,7 @@ worktree, or stages, commits, fetches, pushes, releases, or deploys anything.
 Install a released version as a standard uv-managed tool:
 
 ```bash
-uv tool install cuff-cli==0.1.0
+uv tool install cuff-cli==0.2.0
 cuff --version
 ```
 
@@ -112,10 +112,10 @@ spend, or residual-risk authority.
 
 ## Static host integrations
 
-Small native assets live in [`plugins/claude/cuff`](plugins/claude/cuff) and
-[`plugins/codex/cuff`](plugins/codex/cuff). The shared `fab7hq/fab7`
-marketplace owns registration; this repository owns the payload. The assets
-require the uv-managed `cuff` executable on `PATH`.
+One native payload lives in [`plugins/cuff`](plugins/cuff) and contains both
+host manifests, Claude Code commands, and Codex skills. The shared
+`fab7hq/fab7` marketplace owns registration; this repository owns the payload.
+The assets require the uv-managed `cuff` executable on `PATH`.
 
 ```bash
 # Codex
@@ -127,12 +127,16 @@ claude plugin marketplace add fab7hq/fab7
 claude plugin install cuff@fab7 --scope user
 ```
 
-Validate an editable CLI and either host payload without touching the normal
-host configuration:
+Validate the built candidate and both host payloads without touching the
+normal host configuration:
 
 ```bash
+uv build --out-dir ../sandbox/cuff-01/dist
 uv run python tools/local_release_check.py --host all
-uv run python tools/local_release_check.py --host all --live
+uv run python tools/local_release_check.py --host all --live \
+  --candidate-commit COMMIT \
+  --codex-model MODEL \
+  --claude-model MODEL
 ```
 
 See [RUNBOOK.md](RUNBOOK.md) for operations, [the architecture overview](docs/architecture/overview.md)

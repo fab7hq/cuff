@@ -33,10 +33,10 @@ Git commit.
 
 ## One-way composition
 
-Extensions such as Denim own semantic review, coverage, goal drift, and their
-immutable domain state. After those checks, an extension calls the public
-Cuff executable for the exact subject and validates the returned JSON receipt.
-Cuff does not know the extension's name, schema, state, or verifier semantics.
+A caller owns semantic review, coverage, goal drift, and its immutable domain
+state. After those checks, it calls the public Cuff executable for the exact
+subject and validates the returned JSON receipt. Cuff does not know the
+caller's name, schema, state, or verifier semantics.
 
 ## Explicit non-goals
 

@@ -101,6 +101,17 @@ its state, selects its verifier, or interprets its output.
 extension domain checks -> exact subject -> public cuff executable -> JSON receipt
 ```
 
-The repository's Claude Code and Codex directories are small static guidance
-assets. Host-native plugin managers own their lifecycle; the Python package
-does not contain or install them.
+The repository's Claude Code and Codex integrations are small static guidance
+assets in one `plugins/cuff` payload. Host-native plugin managers own their
+lifecycle; the Python package does not contain or install them.
+
+## CLI result and status contract
+
+`check --json` always returns exactly `ok`, `errors`, `work_item`,
+`latest_claim`, `selected_evidence`, and `record_count`. The other four commands
+return their command receipt or the common `ok` and `errors` refusal envelope.
+JSON is written as one stdout document.
+
+Exit status `0` is success; `1` is a gate, refusal, or observed verifier
+failure; `2` is argument parsing; `3` is an unexpected failure; and `130` is
+interruption.

@@ -1,6 +1,6 @@
 {
   "name": "cuff",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Initialize and use the local Cuff proof CLI.",
   "author": {
     "name": "Fab7",

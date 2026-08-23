@@ -27,7 +27,7 @@ from conftest import git
 
 
 DIGEST = "sha256:" + "a" * 64
-SUBJECT = {"kind": "denim-fabric", "ref": "fabric_123", "digest": DIGEST}
+SUBJECT = {"kind": "artifact", "ref": "artifact_123", "digest": DIGEST}
 
 
 def _claim(root: Path, summary: str = "Done") -> dict[str, object]:

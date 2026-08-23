@@ -43,26 +43,54 @@ def check(
         _fail(result["errors"], "CUFF_CLAIM_MISSING", "No completion claim exists", work_item=normalized)
         return result
 
-    passing = [
+    linked = [
         record
         for record in records
         if record["type"] == "evidence"
         and record["claim"] == claim["id"]
-        and record["exit_code"] == 0
     ]
-    for evidence in reversed(passing):
-        if not _subject_fresh(root, claim):
-            break
-        if git_context is None or not _evidence_fresh(root, evidence, head, git_context):
-            continue
-        result["selected_evidence"] = evidence
-        result["ok"] = not result["errors"]
+    if not linked:
+        _fail(
+            result["errors"],
+            "CUFF_EVIDENCE_MISSING",
+            "Latest claim has no linked evidence",
+            work_item=normalized,
+            record_id=claim["id"],
+        )
         return result
+
+    passing = [record for record in linked if record["exit_code"] == 0]
+    if not passing:
+        _fail(
+            result["errors"],
+            "CUFF_EVIDENCE_FAILED",
+            "Latest claim has linked evidence, but none passed",
+            work_item=normalized,
+            record_id=claim["id"],
+        )
+        return result
+
+    if not _subject_fresh(root, claim):
+        _fail(
+            result["errors"],
+            "CUFF_SUBJECT_STALE",
+            "Latest claim subject changed or cannot be recomputed",
+            work_item=normalized,
+            record_id=claim["id"],
+        )
+        return result
+
+    if git_context is not None and not result["errors"]:
+        for evidence in reversed(passing):
+            if _evidence_fresh(root, evidence, head, git_context):
+                result["selected_evidence"] = evidence
+                result["ok"] = True
+                return result
 
     _fail(
         result["errors"],
-        "CUFF_EVIDENCE_MISSING",
-        "Latest claim has no fresh passing evidence",
+        "CUFF_EVIDENCE_STALE",
+        "Passing evidence no longer applies to the selected Git state",
         work_item=normalized,
         record_id=claim["id"],
     )

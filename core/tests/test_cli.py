@@ -20,7 +20,7 @@ DIGEST = "sha256:" + "a" * 64
 
 def _subject_args() -> list[str]:
     return [
-        "--subject-kind", "denim-fabric", "--subject-ref", "fabric_123",
+        "--subject-kind", "artifact", "--subject-ref", "artifact_123",
         "--subject-digest", DIGEST,
     ]
 
@@ -80,7 +80,7 @@ def test_provenance_selectors_are_absent(argv: list[str]) -> None:
     assert raised.value.code == 2
 
 
-def test_denim_style_json_subprocess_contract_is_git_anchored(
+def test_json_subprocess_contract_is_git_anchored(
     repo: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -100,8 +100,8 @@ def test_denim_style_json_subprocess_contract_is_git_anchored(
     ]) == 0
     claim = json.loads(capsys.readouterr().out)["record"]
     assert claim["subject"] == {
-        "kind": "denim-fabric",
-        "ref": "fabric_123",
+        "kind": "artifact",
+        "ref": "artifact_123",
         "digest": DIGEST,
     }
 
@@ -160,6 +160,43 @@ def test_atomic_seal_json_returns_both_records_and_failure_status(
     assert data["evidence"]["exit_code"] == 7
 
 
+def test_success_json_envelopes_are_closed(
+    repo: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["init", "--json"]) == 0
+    initialized = json.loads(capsys.readouterr().out)
+    assert set(initialized) == {"ok", "status", "workspace", "marker"}
+    git(repo, "add", ".fab7/cuff/project.json")
+    git(repo, "commit", "-qm", "initialize cuff")
+
+    assert main([
+        "claim", "--work-item", "work-1", "--summary", "Done", *_subject_args(), "--json"
+    ]) == 0
+    claimed = json.loads(capsys.readouterr().out)
+    assert set(claimed) == {"ok", "record", "path", "line"}
+
+    assert main([
+        "verify", "--work-item", "work-1", "--claim", claimed["record"]["id"], "--json",
+        "--", sys.executable, "-c", "pass",
+    ]) == 0
+    verified = json.loads(capsys.readouterr().out)
+    assert set(verified) == {"ok", "record", "path", "line", "timed_out"}
+
+    assert main([
+        "seal", "--work-item", "work-2", "--summary", "Done", *_subject_args(), "--json",
+        "--", sys.executable, "-c", "pass",
+    ]) == 0
+    sealed = json.loads(capsys.readouterr().out)
+    assert set(sealed) == {"ok", "claim", "evidence", "path", "lines", "timed_out"}
+
+    assert main(["check", "--work-item", "work-1", "--json"]) == 0
+    checked = json.loads(capsys.readouterr().out)
+    assert set(checked) == {
+        "ok", "errors", "work_item", "latest_claim", "selected_evidence", "record_count"
+    }
+
+
 def test_subdirectory_discovers_the_root_project(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _initialize_and_commit(repo, capsys)
     child = repo / "nested" / "child"
@@ -200,7 +237,15 @@ def test_missing_setup_and_non_git_init_return_stable_errors(
     assert main([
         "check", "--workspace", str(repo), "--work-item", "work-1", "--json"
     ]) == 1
-    assert json.loads(capsys.readouterr().out)["errors"][0]["code"] == "CUFF_PROJECT_NOT_INITIALIZED"
+    missing = json.loads(capsys.readouterr().out)
+    assert set(missing) == {
+        "ok", "errors", "work_item", "latest_claim", "selected_evidence", "record_count"
+    }
+    assert missing["errors"][0]["code"] == "CUFF_PROJECT_NOT_INITIALIZED"
+    assert missing["work_item"] == "work-1"
+    assert missing["latest_claim"] is None
+    assert missing["selected_evidence"] is None
+    assert missing["record_count"] == 0
 
     outside = repo.parent / f"{repo.name}-outside"
     outside.mkdir()
@@ -222,6 +267,9 @@ def test_interruption_and_unexpected_failure_have_distinct_exit_codes(
     assert main(["check", "--work-item", "work-1", "--json"]) == 3
     data = json.loads(capsys.readouterr().out)
     assert data["errors"] == [{"code": "CUFF_UNEXPECTED", "message": "ValueError: boom"}]
+    assert set(data) == {
+        "ok", "errors", "work_item", "latest_claim", "selected_evidence", "record_count"
+    }
 
 
 def test_version_flag_reports_package_version(capsys: pytest.CaptureFixture[str]) -> None:

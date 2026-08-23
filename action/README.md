@@ -13,9 +13,9 @@ history, and pass the work item and comparison refs explicitly:
   with:
     fetch-depth: 0
 
-- uses: fab7hq/cuff/action@v0.1.0
+- uses: fab7hq/cuff/action@v0.2.0
   with:
-    version: "0.1.0"
+    version: "0.2.0"
     working-directory: "."
     work-item: "task-1"
     base: ${{ github.event.pull_request.base.sha }}

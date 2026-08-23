@@ -11,7 +11,7 @@ from typing import Any
 from . import __version__
 from .errors import CuffError
 from .gate import check
-from .ledger import append, create_claim, seal, verify
+from .ledger import append, create_claim, normalize_work_item, seal, verify
 from .subject import declared_subject, filesystem_subject
 from .workspace import find_workspace, initialize_workspace
 
@@ -137,13 +137,15 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         return 130
     except Exception as exc:
-        if getattr(args, "json", False):
-            print(json.dumps({
-                "ok": False,
-                "errors": [{"code": "CUFF_UNEXPECTED", "message": f"{type(exc).__name__}: {exc}"}],
-            }, sort_keys=True, indent=2))
+        error = {"code": "CUFF_UNEXPECTED", "message": f"{type(exc).__name__}: {exc}"}
+        if getattr(args, "command", None) == "check":
+            data = _check_error(args, error)
         else:
-            print(f"CUFF_UNEXPECTED: {type(exc).__name__}: {exc}", file=sys.stderr)
+            data = {"ok": False, "errors": [error]}
+        if getattr(args, "json", False):
+            print(json.dumps(data, sort_keys=True, indent=2))
+        else:
+            print(f"{error['code']}: {error['message']}", file=sys.stderr)
         return 3
     return 2
 
@@ -211,12 +213,32 @@ def _finish_result(args: argparse.Namespace, data: dict[str, Any], label: str) -
 
 
 def _finish_error(args: argparse.Namespace, error: CuffError) -> int:
-    data = {"ok": False, "errors": [error.to_dict()]}
+    data = (
+        _check_error(args, error.to_dict())
+        if getattr(args, "command", None) == "check"
+        else {"ok": False, "errors": [error.to_dict()]}
+    )
     if getattr(args, "json", False):
         print(json.dumps(data, sort_keys=True, indent=2))
     else:
         print(str(error), file=sys.stderr)
     return 1
+
+
+def _check_error(args: argparse.Namespace, error: dict[str, Any]) -> dict[str, Any]:
+    work_item = getattr(args, "work_item", None)
+    try:
+        work_item = normalize_work_item(work_item)
+    except CuffError:
+        pass
+    return {
+        "ok": False,
+        "errors": [error],
+        "work_item": work_item,
+        "latest_claim": None,
+        "selected_evidence": None,
+        "record_count": 0,
+    }
 
 
 def _replay(content: bytes, stream: Any) -> None:

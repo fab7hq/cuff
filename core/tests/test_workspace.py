@@ -12,7 +12,7 @@ from conftest import git
 
 
 DIGEST = "sha256:" + "a" * 64
-SUBJECT = {"kind": "denim-fabric", "ref": "fabric_123", "digest": DIGEST}
+SUBJECT = {"kind": "artifact", "ref": "artifact_123", "digest": DIGEST}
 
 
 def test_init_writes_the_minimal_marker_at_the_exact_git_root(repo: Path) -> None:

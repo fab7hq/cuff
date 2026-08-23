@@ -35,7 +35,7 @@ uv run --project /path/to/cuff cuff claim --work-item demo --subject-path .
 core/cuff/       the package: cli, workspace, subject, ledger, gate, git, errors
 core/tests/      one test module per package module
 action/          the GitHub Action wrapper — a thin package-based check
-plugins/         static host assets for Claude Code and Codex
+plugins/cuff/    one static payload for Claude Code and Codex
 docs/            this project's own documentation
 ```
 

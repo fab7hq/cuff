@@ -23,7 +23,7 @@ root of one Git worktree.
 Install a released package with uv:
 
 ```bash
-uv tool install cuff-cli==0.1.0
+uv tool install cuff-cli==0.2.0
 command -v cuff
 cuff --version
 ```
@@ -136,29 +136,44 @@ cuff check \
 
 The result contains `ok`, `errors`, `work_item`, `latest_claim`,
 `selected_evidence`, and `record_count`. The JSONL file remains the full
-history. `check` fails for a missing/latest unproved claim, failed or stale
-evidence, subject mutation, non-ledger dirtiness, changed implementation,
-ancestry failure, or ledger rewrite.
+history. The latest-claim evidence classification is exact:
+
+- `CUFF_CLAIM_MISSING`: no claim exists;
+- `CUFF_EVIDENCE_MISSING`: the latest claim has no linked evidence;
+- `CUFF_EVIDENCE_FAILED`: linked evidence exists but none passed;
+- `CUFF_SUBJECT_STALE`: passing evidence exists but the subject changed or
+  cannot be recomputed; and
+- `CUFF_EVIDENCE_STALE`: passing evidence no longer applies to the selected
+  Git state.
+
+Named workspace, ledger, dirtiness, ancestry, rewrite, and unexpected errors
+remain separate. `selected_evidence` is non-null only when one passing record
+satisfies subject and Git freshness. `ok` is true only when `errors` is empty
+and that selected record is present.
 
 ## 7. Static host plugins
 
-Cuff ships no plugin installer. This repository keeps host-native source at:
+Cuff ships no plugin installer. This repository keeps one host-native source
+payload at:
 
 ```text
-plugins/claude/cuff/   # Claude Code manifest and commands
-plugins/codex/cuff/    # Codex manifest and skills
+plugins/cuff/
+├── .claude-plugin/plugin.json
+├── .codex-plugin/plugin.json
+├── commands/
+└── skills/
 ```
 
 Install through the selected host's native plugin manager:
 
 ```bash
 # Codex
-codex plugin marketplace add fab7hq/cuff --ref v0.1.0
-codex plugin add cuff@fab7hq
+codex plugin marketplace add fab7hq/fab7
+codex plugin add cuff@fab7
 
 # Claude Code
-claude plugin marketplace add fab7hq/cuff@v0.1.0
-claude plugin install cuff@fab7hq --scope user
+claude plugin marketplace add fab7hq/fab7
+claude plugin install cuff@fab7 --scope user
 ```
 
 Ensure the uv-managed `cuff` executable is on the host process's `PATH`. The
@@ -170,7 +185,7 @@ establish static structure.
 ## 8. Release
 
 After the release commit passes `CI`, create and push the matching version tag
-(for example, `v0.1.0`). `release.yaml` verifies that the tag matches
+(`v0.2.0`). `release.yaml` verifies that the tag matches
 `pyproject.toml`, reruns the source checks and tests, builds once, publishes to
 PyPI with Trusted Publishing, then creates the GitHub Release from that tag.
 
@@ -191,10 +206,18 @@ pushes to `main` never publish a package.
 | `CUFF_SUBJECT_CHANGED` | Restore or recapture the exact filesystem subject. |
 | `CUFF_CONCURRENT_UPDATE` | Another writer won; inspect the preserved ledger and retry deliberately. |
 | `CUFF_LEDGER_REWRITE` | Restore append-only record history. |
-| `CUFF_EVIDENCE_MISSING` | Produce passing fresh evidence for the latest claim. |
+| `CUFF_CLAIM_MISSING` | Record a claim for the requested work item. |
+| `CUFF_EVIDENCE_MISSING` | Record evidence linked to the latest claim. |
+| `CUFF_EVIDENCE_FAILED` | Run a verifier that exits successfully for the latest claim. |
+| `CUFF_SUBJECT_STALE` | Restore the exact subject or create a new claim for its current identity. |
+| `CUFF_EVIDENCE_STALE` | Re-observe passing evidence at the selected Git state. |
 
 Use `--json` for automation. It writes one JSON document to stdout and keeps
 diagnostics from corrupting that result.
+
+Exit status `0` means success. Status `1` means a gate, refusal, or verifier
+failure; `2` is argument parsing; `3` is an unexpected failure; and `130` is
+interruption.
 
 ## Contributor verification
 

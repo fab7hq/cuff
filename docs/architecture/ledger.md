@@ -113,9 +113,18 @@ lines, and noncanonical work items.
 }
 ```
 
-It parses every ledger, selects the latest claim in the requested ledger, and
-requires linked exit-zero evidence. File and tree subjects are recomputed.
-Every check also enforces:
+It validates every ledger before selecting the latest claim in the requested
+ledger. The failure classification is closed and ordered:
+
+| Code | Meaning |
+|---|---|
+| `CUFF_CLAIM_MISSING` | No claim exists. |
+| `CUFF_EVIDENCE_MISSING` | No evidence links to the latest claim. |
+| `CUFF_EVIDENCE_FAILED` | Linked evidence exists, but none passed. |
+| `CUFF_SUBJECT_STALE` | Passing evidence exists, but the subject changed or cannot be recomputed. |
+| `CUFF_EVIDENCE_STALE` | Passing evidence exists, but none applies to the selected Git state. |
+
+File and tree subjects are recomputed. Every check also enforces:
 
 - exact Git worktree-root ownership and non-ledger cleanliness;
 - evidence-commit ancestry of the selected head;
@@ -123,5 +132,7 @@ Every check also enforces:
 - optional explicit base/head comparison or the local default; and
 - append-only record changes.
 
-The selected claim and evidence are the exact records used by the decision.
-The JSONL ledger remains the complete bounded history.
+`selected_evidence` is set only to the exact passing record that satisfies
+subject and Git freshness. `ok` is true only when `errors` is empty and that
+record is present. `latest_claim` and `selected_evidence` are validated records,
+never raw JSONL lines. The JSONL ledger remains the complete bounded history.

@@ -12,7 +12,7 @@ from conftest import git
 
 
 DIGEST = "sha256:" + "a" * 64
-OPAQUE = declared_subject("denim-fabric", "fabric_123", DIGEST)
+OPAQUE = declared_subject("artifact", "artifact_123", DIGEST)
 
 
 def _claim(root: Path, subject: dict[str, str] = OPAQUE) -> dict[str, object]:
@@ -60,6 +60,20 @@ def test_gate_has_one_closed_projection_and_requires_latest_claim(repo: Path) ->
     assert _codes(check(repo, "work-1")) == ["CUFF_EVIDENCE_MISSING"]
 
 
+def test_gate_validates_every_ledger_before_selecting_requested_work_item(repo: Path) -> None:
+    claim = _claim(repo)
+    _verify(repo, claim)
+    other = repo / ".fab7/cuff/records/other.jsonl"
+    other.write_text("{not json}\n")
+
+    result = check(repo, "work-1")
+
+    assert _codes(result) == ["CUFF_LEDGER_INVALID"]
+    assert result["latest_claim"] is None
+    assert result["selected_evidence"] is None
+    assert result["record_count"] == 0
+
+
 def test_failed_evidence_does_not_back_a_claim(repo: Path) -> None:
     claim = _claim(repo)
     verify(
@@ -69,7 +83,24 @@ def test_failed_evidence_does_not_back_a_claim(repo: Path) -> None:
         [sys.executable, "-c", "raise SystemExit(1)"],
         actor="agent:test",
     )
-    assert _codes(check(repo, "work-1")) == ["CUFF_EVIDENCE_MISSING"]
+    assert _codes(check(repo, "work-1")) == ["CUFF_EVIDENCE_FAILED"]
+
+
+def test_latest_passing_observation_is_selected_even_after_a_failure(repo: Path) -> None:
+    claim = _claim(repo)
+    _verify(repo, claim)
+    selected = check(repo, "work-1")["selected_evidence"]
+    verify(
+        repo,
+        "work-1",
+        str(claim["id"]),
+        [sys.executable, "-c", "raise SystemExit(1)"],
+        actor="agent:test",
+    )
+
+    result = check(repo, "work-1")
+    assert result["ok"]
+    assert result["selected_evidence"] == selected
 
 
 def test_every_nonledger_mutation_invalidates_git_readiness_for_opaque_subject(repo: Path) -> None:
@@ -80,6 +111,8 @@ def test_every_nonledger_mutation_invalidates_git_readiness_for_opaque_subject(r
     result = check(repo, "work-1")
 
     assert "CUFF_REPOSITORY_DIRTY" in _codes(result)
+    assert "CUFF_EVIDENCE_STALE" in _codes(result)
+    assert result["selected_evidence"] is None
     assert not result["ok"]
 
 
@@ -91,7 +124,7 @@ def test_filesystem_subject_mutation_makes_evidence_stale(repo: Path) -> None:
     (repo / "app.py").write_text("VALUE = 2\n")
     result = check(repo, "work-1")
     assert "CUFF_REPOSITORY_DIRTY" in _codes(result)
-    assert "CUFF_EVIDENCE_MISSING" in _codes(result)
+    assert "CUFF_SUBJECT_STALE" in _codes(result)
 
 
 def test_committed_implementation_change_stales_git_evidence(repo: Path) -> None:
@@ -104,7 +137,22 @@ def test_committed_implementation_change_stales_git_evidence(repo: Path) -> None
     (repo / "app.py").write_text("VALUE = 2\n")
     git(repo, "add", "app.py")
     git(repo, "commit", "-qm", "change implementation")
-    assert "CUFF_EVIDENCE_MISSING" in _codes(check(repo, "work-1"))
+    assert "CUFF_SUBJECT_STALE" in _codes(check(repo, "work-1"))
+
+
+def test_committed_non_subject_change_stales_git_evidence(repo: Path) -> None:
+    claim = _claim(repo)
+    _verify(repo, claim)
+    git(repo, "add", ".fab7/cuff")
+    git(repo, "commit", "-qm", "record proof")
+
+    (repo / "app.py").write_text("VALUE = 2\n")
+    git(repo, "add", "app.py")
+    git(repo, "commit", "-qm", "change implementation")
+
+    result = check(repo, "work-1")
+    assert _codes(result) == ["CUFF_EVIDENCE_STALE"]
+    assert result["selected_evidence"] is None
 
 
 def test_git_ledger_rewrite_is_rejected(repo: Path) -> None:

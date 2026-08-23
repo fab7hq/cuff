@@ -13,17 +13,17 @@ DIGEST = "sha256:" + "a" * 64
 
 
 def test_declared_subject_is_closed_and_bounded() -> None:
-    assert declared_subject("denim-fabric", "fabric_123", DIGEST) == {
-        "kind": "denim-fabric",
-        "ref": "fabric_123",
+    assert declared_subject("artifact", "artifact_123", DIGEST) == {
+        "kind": "artifact",
+        "ref": "artifact_123",
         "digest": DIGEST,
     }
 
     invalid = [
-        ("Denim", "fabric_123", DIGEST),
-        ("denim", "", DIGEST),
-        ("denim", "fabric\n123", DIGEST),
-        ("denim", "fabric_123", "sha256:" + "A" * 64),
+        ("Artifact", "artifact_123", DIGEST),
+        ("artifact", "", DIGEST),
+        ("artifact", "artifact\n123", DIGEST),
+        ("artifact", "artifact_123", "sha256:" + "A" * 64),
     ]
     for kind, ref, digest in invalid:
         with pytest.raises(CuffError, match="CUFF_SUBJECT_INVALID"):

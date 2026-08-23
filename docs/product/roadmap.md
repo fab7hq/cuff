@@ -4,15 +4,15 @@ type: product
 status: accepted
 owner: product
 authority_for:
-  - 0.1.0 lean-core outcome
-  - 0.1.0 store-root location
+  - 0.2.0 release outcome
+  - store-root location
   - local release gate
   - external publication obligations
 ---
 
 # Cuff product roadmap
 
-## 0.1.0 lean-core cut
+## 0.2.0 release boundary
 
 One product, five commands: `init`, `claim`, `verify`, `seal`, and `check`.
 
@@ -37,21 +37,21 @@ Cuff is a dependency-free Python package for Python 3.11 or newer. `uv build`
 produces the standard wheel and source distribution; `uv tool install` owns
 the executable environment. uv `0.11.32` remains the tested recommendation.
 
-Claude Code and Codex guidance is stored as separate static native assets.
-Each host owns plugin installation and removal. Cuff does not package those
-assets into the Python wheel or mutate a live host.
+Claude Code and Codex guidance is stored in one static `plugins/cuff` payload
+with both host manifests. Each host owns plugin installation and removal. Cuff
+does not package those assets into the Python wheel or mutate a live host.
 
 ## Release gate
 
-A 0.1.0 publication requires fresh evidence for the exact release bytes:
+A 0.2.0 publication requires fresh evidence for the exact release bytes:
 
 - locked sync, Python 3.11 and current-version tests, and compile checks;
 - standard wheel and source distribution build;
 - wheel-content inspection and isolated installed-tool init/seal/check smoke;
 - five-command help and removed-command rejection;
-- static host manifest validation plus separately authorized live-host checks;
-- known consumer cutovers reviewed in Denim, Tapestry, WNW, the Action, and
-  registry-facing documentation; and
+- strict Claude Code validation and authenticated installed-plugin checks in
+  both supported hosts;
+- immutable consumer handoffs for the public JSON projection and payload; and
 - clean whitespace and exact changed-path review.
 
 Consumer changes, live host installation, release, publication, and deployment
