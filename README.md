@@ -113,18 +113,26 @@ spend, or residual-risk authority.
 ## Static host integrations
 
 Small native assets live in [`plugins/claude/cuff`](plugins/claude/cuff) and
-[`plugins/codex/cuff`](plugins/codex/cuff). The corresponding host plugin
-manager owns their installation and removal. These assets require only the
-uv-managed `cuff` executable on `PATH`; Cuff itself does not install plugins.
+[`plugins/codex/cuff`](plugins/codex/cuff). The shared `fab7hq/fab7`
+marketplace owns registration; this repository owns the payload. The assets
+require the uv-managed `cuff` executable on `PATH`.
 
 ```bash
 # Codex
-codex plugin marketplace add fab7hq/cuff --ref v0.1.0
-codex plugin add cuff@fab7hq
+codex plugin marketplace add fab7hq/fab7
+codex plugin add cuff@fab7
 
 # Claude Code
-claude plugin marketplace add fab7hq/cuff@v0.1.0
-claude plugin install cuff@fab7hq --scope user
+claude plugin marketplace add fab7hq/fab7
+claude plugin install cuff@fab7 --scope user
+```
+
+Validate an editable CLI and either host payload without touching the normal
+host configuration:
+
+```bash
+uv run python tools/local_release_check.py --host all
+uv run python tools/local_release_check.py --host all --live
 ```
 
 See [RUNBOOK.md](RUNBOOK.md) for operations, [the architecture overview](docs/architecture/overview.md)
