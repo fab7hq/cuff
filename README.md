@@ -133,8 +133,13 @@ normal host configuration:
 ```bash
 uv build --out-dir ../sandbox/cuff-01/dist
 uv run python tools/local_release_check.py --host all
-uv run python tools/local_release_check.py --host all --live \
+uv run python tools/local_release_check.py --host all --prepare-auth \
   --candidate-commit COMMIT \
+  --evidence-dir ../sandbox/cuff-01/e2e
+# Log each CLI in using the isolated home paths printed by the prepare phase.
+uv run python tools/local_release_check.py --host all --live --reuse-prepared \
+  --candidate-commit COMMIT \
+  --evidence-dir ../sandbox/cuff-01/e2e \
   --codex-model MODEL \
   --claude-model MODEL
 ```

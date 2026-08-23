@@ -506,18 +506,38 @@ def lane_check(
     base_env: dict[str, str],
     *,
     live: bool,
+    remote: bool,
+    reuse_prepared: bool,
     model: str | None,
+    prepared: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     lane = sandbox / host
-    lane.mkdir(parents=True)
-    executable, wheel_install = install_wheel(wheel, lane, base_env)
+    if reuse_prepared:
+        executable = (lane / "bin" / PRODUCT).resolve()
+        version = run([str(executable), "--version"], env=base_env)
+        if version.stdout.strip() != VERSION:
+            raise RuntimeError(f"unexpected prepared version: {version.stdout.strip()}")
+        wheel_install = None
+    else:
+        lane.mkdir(parents=True)
+        executable, wheel_install = install_wheel(wheel, lane, base_env)
     env = base_env.copy()
     env["PATH"] = str(executable.parent) + os.pathsep + env.get("PATH", "")
-    marketplace = lane / "marketplace"
-    write_marketplace(marketplace, payload, commit, live=live)
-    installed, plugin_commands = install_plugin(host, marketplace, payload, lane, env)
+    if reuse_prepared:
+        host_home = lane / f"{host}-home"
+        installed = installed_payload(
+            host_home,
+            ".claude-plugin/plugin.json" if host == "claude" else ".codex-plugin/plugin.json",
+        )
+        require_payload_match(payload, installed)
+        plugin_commands: list[Completed] = []
+    else:
+        marketplace = lane / "marketplace"
+        write_marketplace(marketplace, payload, commit, live=remote)
+        installed, plugin_commands = install_plugin(host, marketplace, payload, lane, env)
     host_version = run([host, "--version"], env=env)
-    evidence: dict[str, Any] = {
+    evidence: dict[str, Any] = dict(prepared or {})
+    evidence.update({
         "host": host,
         "host_version": host_version.stdout.strip(),
         "requested_model": model,
@@ -530,9 +550,11 @@ def lane_check(
         ),
         "resolved_executable": str(executable),
         "resolved_version": VERSION,
-        "wheel_install": observation(wheel_install),
-        "plugin_install": [observation(command) for command in plugin_commands],
-    }
+    })
+    if wheel_install is not None:
+        evidence["wheel_install"] = observation(wheel_install)
+    if plugin_commands:
+        evidence["plugin_install"] = [observation(command) for command in plugin_commands]
     if not live:
         return evidence
     if not model:
@@ -586,12 +608,18 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", choices=("codex", "claude", "all"), default="all")
     parser.add_argument("--live", action="store_true")
+    parser.add_argument("--prepare-auth", action="store_true")
+    parser.add_argument("--reuse-prepared", action="store_true")
     parser.add_argument("--candidate-commit")
     parser.add_argument("--codex-model")
     parser.add_argument("--claude-model")
     parser.add_argument("--dist-dir", type=Path)
     parser.add_argument("--evidence-dir", type=Path)
     args = parser.parse_args()
+    if args.prepare_auth and args.live:
+        parser.error("--prepare-auth and --live are separate phases")
+    if args.reuse_prepared and not args.live:
+        parser.error("--reuse-prepared requires --live")
 
     root = Path(__file__).resolve().parents[1]
     workspace = root.parent
@@ -606,9 +634,18 @@ def main() -> int:
     commit = candidate_commit(root, args.candidate_commit, base_env)
     wheel, sdist, artifact_members = inspect_artifacts(dist_dir)
     artifacts = [wheel, sdist]
-    if sandbox.exists():
-        raise RuntimeError(f"evidence directory already exists: {sandbox}")
-    sandbox.mkdir(parents=True)
+    evidence_path = sandbox / "release-candidate-evidence.json"
+    prepared_result: dict[str, Any] | None = None
+    if args.reuse_prepared:
+        if not evidence_path.is_file():
+            raise RuntimeError(f"prepared evidence is missing: {evidence_path}")
+        prepared_result = json.loads(evidence_path.read_text())
+        if prepared_result["candidate"]["commit"] != commit:
+            raise RuntimeError("prepared evidence belongs to another candidate commit")
+    else:
+        if sandbox.exists():
+            raise RuntimeError(f"evidence directory already exists: {sandbox}")
+        sandbox.mkdir(parents=True)
 
     hosts = ("codex", "claude") if args.host == "all" else (args.host,)
     lanes = {
@@ -620,7 +657,10 @@ def main() -> int:
             commit,
             base_env,
             live=args.live,
+            remote=args.live or args.prepare_auth,
+            reuse_prepared=args.reuse_prepared,
             model=getattr(args, f"{host}_model"),
+            prepared=(prepared_result or {}).get("lanes", {}).get(host),
         )
         for host in hosts
     }
@@ -644,12 +684,16 @@ def main() -> int:
             "artifact_members": artifact_members,
         },
         "live": args.live,
+        "prepared_auth": args.prepare_auth,
         "source_status_before": before,
         "source_status_after": after,
         "lanes": lanes,
     }
-    evidence_path = sandbox / "release-candidate-evidence.json"
     evidence_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    if args.prepare_auth:
+        for host in hosts:
+            variable = "CLAUDE_CONFIG_DIR" if host == "claude" else "CODEX_HOME"
+            print(f"{variable}={sandbox / host / f'{host}-home'}")
     print(evidence_path)
     return 0
 
