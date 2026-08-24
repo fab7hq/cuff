@@ -84,16 +84,18 @@ For an immutable external subject, pass all three declared fields instead:
 
 ```bash
 cuff seal \
-  --work-item onboarding \
-  --summary "Batch reviewed" \
-  --subject-kind denim-fabric \
-  --subject-ref fabric_123 \
-  --subject-digest sha256:REPLACE_WITH_64_LOWERCASE_HEX \
+  --work-item release-artifact \
+  --summary "Release artifact verified" \
+  --subject-kind release-artifact \
+  --subject-ref widget-1.2.3.tar.gz \
+  --subject-digest sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
   --json \
-  -- denim assert-batch fabric_123
+  -- python tools/verify_release.py widget-1.2.3.tar.gz
 ```
 
-The verifier is caller-owned and opaque to Cuff.
+Replace the illustrative digest with the artifact's actual lowercase SHA-256.
+The subject identity and verifier are caller-owned and opaque to Cuff.
+`tools/verify_release.py` is illustrative caller code, not part of Cuff.
 
 ## 5. Split claim and verify when necessary
 
