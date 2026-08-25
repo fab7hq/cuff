@@ -2,8 +2,8 @@
 
 ## Supported releases
 
-Cuff `0.1.x` receives security fixes. Reproduce a report against the newest
-published `0.1.x` release when practical.
+Cuff `0.2.x` receives security fixes. Reproduce a report against the newest
+published `0.2.x` release when practical.
 
 ## Report a vulnerability privately
 

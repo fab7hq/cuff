@@ -18,7 +18,9 @@ from typing import Any
 
 PRODUCT = "cuff"
 DISTRIBUTION = "cuff-cli"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
+VALID_SAMPLES = 3
+HOST_EXIT_CODES = tuple(range(256))
 CHECK_FIELDS = {
     "ok", "errors", "work_item", "latest_claim", "selected_evidence", "record_count",
 }
@@ -39,16 +41,21 @@ def run(
     cwd: Path | None = None,
     expected: tuple[int, ...] = (0,),
 ) -> Completed:
-    completed = subprocess.run(
-        argv,
-        cwd=cwd,
-        env=env,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=900,
-    )
-    result = Completed(argv, completed.returncode, completed.stdout, completed.stderr)
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=cwd,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=900,
+        )
+        result = Completed(argv, completed.returncode, completed.stdout, completed.stderr)
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout or ""
+        stderr = exc.stderr.decode(errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr or ""
+        result = Completed(argv, 124, stdout, stderr)
     if result.returncode not in expected:
         detail = (result.stderr or result.stdout).strip()
         raise RuntimeError(
@@ -65,6 +72,91 @@ def sha256(path: Path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
+def tree_sha256(root: Path) -> tuple[str, list[str]]:
+    members = sorted(path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file())
+    digest = hashlib.sha256()
+    for member in members:
+        digest.update(member.encode())
+        digest.update(b"\0")
+        digest.update((root / member).read_bytes())
+        digest.update(b"\0")
+    return "sha256:" + digest.hexdigest(), members
+
+
+def load_json(path: Path, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"{label} is not readable JSON: {path}") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError(f"{label} must be a JSON object: {path}")
+    return value
+
+
+def require_live_controls(
+    manifest_path: Path,
+    preflight_path: Path,
+    commit: str,
+    hosts: tuple[str, ...],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    manifest = load_json(manifest_path, "qualification manifest")
+    preflight = load_json(preflight_path, "containment preflight")
+    expected_candidate = {"version": VERSION, "commit": commit}
+    qualification_id = manifest.get("qualification_id")
+    if (
+        manifest.get("schema") != 1
+        or manifest.get("state") != "FROZEN"
+        or not isinstance(qualification_id, str)
+        or not qualification_id
+        or manifest.get("candidate") != expected_candidate
+        or manifest.get("hosts") != list(hosts)
+        or manifest.get("cases") != ["current", "stale"]
+        or manifest.get("valid_samples") != VALID_SAMPLES
+        or manifest.get("deterministic_only") is not True
+    ):
+        raise RuntimeError("qualification manifest does not match the exact live candidate")
+    policies = manifest.get("policies")
+    if not isinstance(policies, dict):
+        raise RuntimeError("qualification manifest policies are missing")
+    for host in hosts:
+        policy = policies.get(host)
+        if not isinstance(policy, dict):
+            raise RuntimeError(f"qualification policy is missing for {host}")
+        for field in ("prompt_digest", "tool_policy_digest", "containment_policy_digest"):
+            value = policy.get(field)
+            if not isinstance(value, str) or not value.startswith("sha256:"):
+                raise RuntimeError(f"qualification {field} is invalid for {host}")
+
+    if (
+        preflight.get("schema") != 1
+        or preflight.get("qualification_id") != qualification_id
+        or preflight.get("candidate") != expected_candidate
+        or preflight.get("verdict") != "PASS"
+    ):
+        raise RuntimeError("containment preflight does not pass for the frozen qualification")
+    lanes = preflight.get("lanes")
+    if not isinstance(lanes, dict):
+        raise RuntimeError("containment preflight lanes are missing")
+    for host in hosts:
+        lane = lanes.get(host)
+        policy = policies[host]
+        if (
+            not isinstance(lane, dict)
+            or lane.get("verdict") != "PASS"
+            or lane.get("containment_policy_digest") != policy["containment_policy_digest"]
+            or not isinstance(lane.get("tested_routes"), list)
+            or not lane["tested_routes"]
+            or not isinstance(lane.get("allowed_controls"), list)
+            or not lane["allowed_controls"]
+            or not isinstance(lane.get("denied_controls"), list)
+            or not lane["denied_controls"]
+            or not isinstance(lane.get("raw_evidence_digest"), str)
+            or not lane["raw_evidence_digest"].startswith("sha256:")
+        ):
+            raise RuntimeError(f"containment preflight is incomplete for {host}")
+    return manifest, preflight
+
+
 def output_sha256(result: Completed) -> str:
     return "sha256:" + hashlib.sha256(
         result.stdout.encode() + b"\0" + result.stderr.encode()
@@ -75,6 +167,22 @@ def source_status(root: Path, env: dict[str, str]) -> str:
     return run(
         ["git", "status", "--porcelain=v1", "--untracked-files=all"], env=env, cwd=root
     ).stdout
+
+
+def isolated_environment(source: dict[str, str], lane: Path) -> dict[str, str]:
+    allowed = ("PATH", "LANG", "LC_ALL", "TERM", "SSL_CERT_FILE", "SSL_CERT_DIR")
+    env = {key: source[key] for key in allowed if key in source}
+    home = lane / "user-home"
+    temporary = lane / "tmp"
+    home.mkdir(exist_ok=True)
+    temporary.mkdir(exist_ok=True)
+    env.update({
+        "HOME": str(home),
+        "TMPDIR": str(temporary),
+        "USER": "cuff-e2e",
+        "LOGNAME": "cuff-e2e",
+    })
+    return env
 
 
 def candidate_commit(root: Path, requested: str | None, env: dict[str, str]) -> str:
@@ -141,6 +249,16 @@ def require_versions(root: Path, payload: Path) -> None:
     package = (root / "core/cuff/__init__.py").read_text()
     if f'default: "{VERSION}"' not in action or f'__version__ = "{VERSION}"' not in package:
         raise RuntimeError("action default or import version does not match the candidate")
+    guidance = {
+        "README.md": [f"cuff-cli=={VERSION}", "sandbox/cuff-02"],
+        "RUNBOOK.md": [f"cuff-cli=={VERSION}", f"v{VERSION}"],
+        "action/README.md": [f"action@v{VERSION}", f'version: "{VERSION}"'],
+        "docs/product/roadmap.md": [f"## {VERSION} maintenance release"],
+    }
+    for relative, required in guidance.items():
+        content = (root / relative).read_text()
+        if any(value not in content for value in required):
+            raise RuntimeError(f"current installation guidance is stale: {relative}")
 
 
 def install_wheel(wheel: Path, lane: Path, env: dict[str, str]) -> tuple[Path, Completed]:
@@ -309,9 +427,14 @@ def install_plugin(
     return installed, commands
 
 
-def initialize_consumer(executable: Path, lane: Path, env: dict[str, str]) -> dict[str, Any]:
-    consumer = lane / "consumer"
-    consumer.mkdir()
+def initialize_consumer(
+    executable: Path,
+    lane: Path,
+    env: dict[str, str],
+    sample_id: str,
+) -> dict[str, Any]:
+    consumer = lane / "samples" / sample_id / "consumer"
+    consumer.mkdir(parents=True)
     run(["git", "init", "-q"], env=env, cwd=consumer)
     run(["git", "config", "user.name", "Cuff E2E"], env=env, cwd=consumer)
     run(["git", "config", "user.email", "e2e@example.invalid"], env=env, cwd=consumer)
@@ -381,11 +504,13 @@ def invoke_host(
             ],
             env=env,
             cwd=consumer,
-            expected=(0, 1),
+            expected=HOST_EXIT_CODES,
         )
     return run(
         [
-            "codex", "exec", "--ephemeral", "--json",
+            "codex", "exec", "--ephemeral", "--json", "--sandbox", "read-only",
+            "--ignore-rules",
+            "-c", "mcp_servers={}",
             "-c", "shell_environment_policy.inherit=all",
             "-c", f"shell_environment_policy.set.PATH={json.dumps(env.get('PATH', ''))}",
             "-C", str(consumer),
@@ -394,7 +519,7 @@ def invoke_host(
         ],
         env=env,
         cwd=consumer,
-        expected=(0, 1),
+        expected=HOST_EXIT_CODES,
     )
 
 
@@ -482,6 +607,100 @@ def observation(result: Completed, cuff_json: dict[str, Any] | None = None) -> d
     return data
 
 
+def retain_host_output(lane: Path, sample_id: str, result: Completed) -> dict[str, Any]:
+    observations = lane / "observations"
+    observations.mkdir(exist_ok=True)
+    path = observations / f"{sample_id}.json"
+    sensitive_markers = ("access_token", "refresh_token", "api_key", "authorization: bearer", "sk-")
+
+    def sanitize(value: str) -> tuple[str, bool]:
+        lowered = value.lower()
+        if any(marker in lowered for marker in sensitive_markers):
+            return "<redacted-sensitive-output>", True
+        return (
+            value.replace(str(Path.home()), "<operator-home>").replace(str(lane), "<lane>"),
+            False,
+        )
+
+    stdout, stdout_redacted = sanitize(result.stdout)
+    stderr, stderr_redacted = sanitize(result.stderr)
+    retained = {
+        "argv": _redacted_argv(result.argv),
+        "exit_status": result.returncode,
+        "stdout": stdout,
+        "stderr": stderr,
+        "sensitive_output_redacted": stdout_redacted or stderr_redacted,
+    }
+    path.write_text(json.dumps(retained, indent=2, sort_keys=True) + "\n")
+    return {"path": str(path), "sha256": sha256(path), "output_digest": output_sha256(result)}
+
+
+def sample_check(
+    host: str,
+    lane: Path,
+    executable: Path,
+    env: dict[str, str],
+    model: str,
+    case: str,
+    index: int,
+) -> dict[str, Any]:
+    sample_id = f"{case}-{index:02d}"
+    state = initialize_consumer(executable, lane, env, sample_id)
+    if case == "stale":
+        state["subject"].write_text("mutated\n")
+        direct = run(
+            [str(executable), "check", "--work-item", "release-e2e", "--json"],
+            env=env,
+            cwd=state["consumer"],
+            expected=(1,),
+        )
+        direct_json = json.loads(direct.stdout)
+        codes = [error["code"] for error in direct_json["errors"]]
+        if "CUFF_SUBJECT_STALE" not in codes:
+            raise RuntimeError("mutated subject did not produce CUFF_SUBJECT_STALE")
+    else:
+        direct = state["direct"]
+        direct_json = json.loads(direct.stdout)
+
+    before = run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        env=env,
+        cwd=state["consumer"],
+    ).stdout
+    host_result = invoke_host(host, state["consumer"], env, model)
+    raw = retain_host_output(lane, sample_id, host_result)
+    if host_result.returncode not in (0, 1):
+        raise RuntimeError(f"{host} exited unexpectedly for {sample_id}: {host_result.returncode}")
+    require_host_result(host_result, direct_json)
+    models = observed_models(host_result.stdout)
+    if not models:
+        raise RuntimeError(f"{host} did not expose a resolved model for {sample_id}")
+    after = run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        env=env,
+        cwd=state["consumer"],
+    ).stdout
+    if before != after:
+        raise RuntimeError(f"{host} changed consumer state for {sample_id}")
+    return {
+        "id": sample_id,
+        "case": case,
+        "consumer": str(state["consumer"]),
+        "resolved_models": models,
+        "setup": {
+            "init": observation(state["initialized"], json.loads(state["initialized"].stdout)),
+            "claim": state["claim"],
+            "failed_verify": observation(state["failed"], json.loads(state["failed"].stdout)),
+            "passing_verify": observation(state["passed"], json.loads(state["passed"].stdout)),
+        },
+        "direct": observation(direct, direct_json),
+        "host": observation(host_result, direct_json),
+        "raw_host_output": raw,
+        "consumer_status_before": before,
+        "consumer_status_after": after,
+    }
+
+
 def _redacted_argv(argv: list[str]) -> list[str]:
     redacted: list[str] = []
     hide_next = False
@@ -512,16 +731,17 @@ def lane_check(
     prepared: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     lane = sandbox / host
+    if not lane.exists():
+        lane.mkdir(parents=True)
+    env = isolated_environment(base_env, lane)
     if reuse_prepared:
         executable = (lane / "bin" / PRODUCT).resolve()
-        version = run([str(executable), "--version"], env=base_env)
+        version = run([str(executable), "--version"], env=env)
         if version.stdout.strip() != VERSION:
             raise RuntimeError(f"unexpected prepared version: {version.stdout.strip()}")
         wheel_install = None
     else:
-        lane.mkdir(parents=True)
-        executable, wheel_install = install_wheel(wheel, lane, base_env)
-    env = base_env.copy()
+        executable, wheel_install = install_wheel(wheel, lane, env)
     env["PATH"] = str(executable.parent) + os.pathsep + env.get("PATH", "")
     if reuse_prepared:
         host_home = lane / f"{host}-home"
@@ -564,43 +784,21 @@ def lane_check(
         env["CLAUDE_CONFIG_DIR"] = str(lane / "claude-home")
     else:
         env["CODEX_HOME"] = str(lane / "codex-home")
-    consumer_state = initialize_consumer(executable, lane, env)
-    direct_json = json.loads(consumer_state["direct"].stdout)
-    host_pass = invoke_host(host, consumer_state["consumer"], env, model)
-    require_host_result(host_pass, direct_json)
-
-    consumer_state["subject"].write_text("mutated\n")
-    stale_direct = run(
-        [str(executable), "check", "--work-item", "release-e2e", "--json"],
-        env=env,
-        cwd=consumer_state["consumer"],
-        expected=(1,),
-    )
-    stale_json = json.loads(stale_direct.stdout)
-    if "CUFF_SUBJECT_STALE" not in [error["code"] for error in stale_json["errors"]]:
-        raise RuntimeError("mutated subject did not produce CUFF_SUBJECT_STALE")
-    host_stale = invoke_host(host, consumer_state["consumer"], env, model)
-    require_host_result(host_stale, stale_json)
-
-    evidence["observations"] = {
-        "init": observation(
-            consumer_state["initialized"], json.loads(consumer_state["initialized"].stdout)
-        ),
-        "claim": consumer_state["claim"],
-        "failed_verify": observation(
-            consumer_state["failed"], json.loads(consumer_state["failed"].stdout)
-        ),
-        "passing_verify": observation(
-            consumer_state["passed"], json.loads(consumer_state["passed"].stdout)
-        ),
-        "direct_pass": observation(consumer_state["direct"], direct_json),
-        "host_pass": observation(host_pass, direct_json),
-        "direct_stale": observation(stale_direct, stale_json),
-        "host_stale": observation(host_stale, stale_json),
+    samples = [
+        sample_check(host, lane, executable, env, model, case, index)
+        for case in ("current", "stale")
+        for index in range(1, VALID_SAMPLES + 1)
+    ]
+    evidence["samples"] = samples
+    evidence["valid_samples"] = {
+        case: sum(sample["case"] == case for sample in samples)
+        for case in ("current", "stale")
     }
-    evidence["observed_models"] = sorted(
-        set(observed_models(host_pass.stdout) + observed_models(host_stale.stdout))
-    )
+    evidence["observed_models"] = sorted({
+        observed
+        for sample in samples
+        for observed in sample["resolved_models"]
+    })
     return evidence
 
 
@@ -615,25 +813,34 @@ def main() -> int:
     parser.add_argument("--claude-model")
     parser.add_argument("--dist-dir", type=Path)
     parser.add_argument("--evidence-dir", type=Path)
+    parser.add_argument("--qualification-manifest", type=Path)
+    parser.add_argument("--preflight-evidence", type=Path)
     args = parser.parse_args()
     if args.prepare_auth and args.live:
         parser.error("--prepare-auth and --live are separate phases")
     if args.reuse_prepared and not args.live:
         parser.error("--reuse-prepared requires --live")
+    if args.live and (args.qualification_manifest is None or args.preflight_evidence is None):
+        parser.error("--live requires --qualification-manifest and --preflight-evidence")
 
     root = Path(__file__).resolve().parents[1]
     workspace = root.parent
-    sandbox = (args.evidence_dir or workspace / "sandbox" / "cuff-01" / "e2e").resolve()
-    dist_dir = (args.dist_dir or workspace / "sandbox" / "cuff-01" / "dist").resolve()
+    sandbox = (args.evidence_dir or workspace / "sandbox" / "cuff-02" / "e2e").resolve()
+    dist_dir = (args.dist_dir or workspace / "sandbox" / "cuff-02" / "dist").resolve()
     payload = root / "plugins" / PRODUCT
     base_env = os.environ.copy()
     require_versions(root, payload)
     before = source_status(root, base_env)
+    if before:
+        raise RuntimeError("release candidate source checkout must be clean")
     if (root / ".fab7").exists():
         raise RuntimeError("Cuff source checkout must not contain a Cuff ledger")
     commit = candidate_commit(root, args.candidate_commit, base_env)
+    if commit != candidate_commit(root, None, base_env):
+        raise RuntimeError("candidate commit must be the checked-out HEAD")
     wheel, sdist, artifact_members = inspect_artifacts(dist_dir)
     artifacts = [wheel, sdist]
+    payload_digest, payload_members = tree_sha256(payload)
     evidence_path = sandbox / "release-candidate-evidence.json"
     prepared_result: dict[str, Any] | None = None
     if args.reuse_prepared:
@@ -648,6 +855,19 @@ def main() -> int:
         sandbox.mkdir(parents=True)
 
     hosts = ("codex", "claude") if args.host == "all" else (args.host,)
+    qualification: dict[str, Any] | None = None
+    preflight: dict[str, Any] | None = None
+    control_digests: tuple[str, str] | None = None
+    if args.live:
+        manifest_path = args.qualification_manifest.resolve()
+        preflight_path = args.preflight_evidence.resolve()
+        qualification, preflight = require_live_controls(
+            manifest_path,
+            preflight_path,
+            commit,
+            hosts,
+        )
+        control_digests = (sha256(manifest_path), sha256(preflight_path))
     lanes = {
         host: lane_check(
             host,
@@ -681,6 +901,8 @@ def main() -> int:
                 for path in artifacts
             ],
             "payload": "plugins/cuff",
+            "payload_sha256": payload_digest,
+            "payload_members": payload_members,
             "artifact_members": artifact_members,
         },
         "live": args.live,
@@ -689,11 +911,28 @@ def main() -> int:
         "source_status_after": after,
         "lanes": lanes,
     }
+    if qualification is not None and preflight is not None:
+        if control_digests != (
+            sha256(args.qualification_manifest.resolve()),
+            sha256(args.preflight_evidence.resolve()),
+        ):
+            raise RuntimeError("qualification controls changed during live execution")
+        result["qualification"] = {
+            "id": qualification["qualification_id"],
+            "state": "PASS",
+            "deterministic_only": True,
+            "manifest_sha256": control_digests[0],
+            "preflight_sha256": control_digests[1],
+            "valid_samples": VALID_SAMPLES,
+        }
     evidence_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     if args.prepare_auth:
         for host in hosts:
             variable = "CLAUDE_CONFIG_DIR" if host == "claude" else "CODEX_HOME"
-            print(f"{variable}={sandbox / host / f'{host}-home'}")
+            print(
+                f"{host}: HOME={sandbox / host / 'user-home'} "
+                f"{variable}={sandbox / host / f'{host}-home'}"
+            )
     print(evidence_path)
     return 0
 

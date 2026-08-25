@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 import cuff.cli as cli
 from cuff import __version__
 from cuff.cli import main
+from cuff.ledger import record_path
 
 from conftest import git
 
@@ -158,6 +160,99 @@ def test_atomic_seal_json_returns_both_records_and_failure_status(
     assert data["evidence"]["type"] == "evidence"
     assert data["evidence"]["claim"] == data["claim"]["id"]
     assert data["evidence"]["exit_code"] == 7
+
+
+def test_linear_seals_stay_fresh_and_failures_preserve_prior_ledgers(
+    repo: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _initialize_and_commit(repo, capsys)
+    selected: dict[str, dict[str, object]] = {}
+
+    for index in range(3):
+        work_item = f"work-{index}"
+        assert main([
+            "seal", "--work-item", work_item, "--summary", f"Done {index}",
+            *_subject_args(), "--json", "--", sys.executable, "-c", "pass",
+        ]) == 0
+        sealed = json.loads(capsys.readouterr().out)
+        assert set(sealed) == {"ok", "claim", "evidence", "path", "lines", "timed_out"}
+        selected[work_item] = sealed["evidence"]
+
+        for prior in selected:
+            assert main(["check", "--work-item", prior, "--json"]) == 0
+            checked = json.loads(capsys.readouterr().out)
+            assert set(checked) == {
+                "ok", "errors", "work_item", "latest_claim", "selected_evidence",
+                "record_count",
+            }
+            assert checked["ok"]
+            assert checked["errors"] == []
+            assert checked["selected_evidence"] == selected[prior]
+            assert checked["record_count"] == 2
+
+    earlier = {
+        work_item: record_path(repo, work_item).read_bytes()
+        for work_item in selected
+    }
+    assert main([
+        "seal", "--work-item", "work-failed", "--summary", "Failed",
+        *_subject_args(), "--json", "--", sys.executable, "-c", "raise SystemExit(7)",
+    ]) == 1
+    failed = json.loads(capsys.readouterr().out)
+    assert failed["evidence"]["exit_code"] == 7
+    assert not failed["ok"]
+
+    assert main([
+        "seal", "--work-item", "work-refused", "--summary", "Refused",
+        *_subject_args(), "--json", "--", "cuff-command-that-does-not-exist",
+    ]) == 1
+    refused = json.loads(capsys.readouterr().out)
+    assert refused["errors"][0]["code"] == "CUFF_COMMAND_FAILED"
+    assert not record_path(repo, "work-refused").exists()
+    assert all(record_path(repo, item).read_bytes() == content for item, content in earlier.items())
+
+    for work_item, evidence in selected.items():
+        assert main(["check", "--work-item", work_item, "--json"]) == 0
+        assert json.loads(capsys.readouterr().out)["selected_evidence"] == evidence
+
+    (repo / "unrelated.txt").write_text("later\n")
+    for work_item in selected:
+        assert main(["check", "--work-item", work_item, "--json"]) == 1
+        stale = json.loads(capsys.readouterr().out)
+        codes = [error["code"] for error in stale["errors"]]
+        assert "CUFF_REPOSITORY_DIRTY" in codes
+        assert "CUFF_EVIDENCE_STALE" in codes
+        assert stale["selected_evidence"] is None
+
+
+def test_linear_seal_subprocess_count_has_a_fixed_ceiling(
+    repo: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _initialize_and_commit(repo, capsys)
+    real_popen = subprocess.Popen
+    counts = {"git": 0, "verifier": 0}
+
+    def counted_popen(args: list[str], *popen_args: object, **popen_kwargs: object):
+        category = "git" if args and args[0] == "git" else "verifier"
+        counts[category] += 1
+        return real_popen(args, *popen_args, **popen_kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", counted_popen)
+    for index in range(3):
+        assert main([
+            "seal", "--work-item", f"work-{index}", "--summary", f"Done {index}",
+            *_subject_args(), "--json", "--", sys.executable, "-c", "pass",
+        ]) == 0
+        capsys.readouterr()
+        for prior in range(index + 1):
+            assert main(["check", "--work-item", f"work-{prior}", "--json"]) == 0
+            capsys.readouterr()
+
+    assert counts["verifier"] == 3
+    assert counts["git"] <= 93
 
 
 def test_success_json_envelopes_are_closed(

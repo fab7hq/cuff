@@ -5,6 +5,7 @@ status: accepted
 owner: product
 authority_for:
   - 0.2.0 release outcome
+  - 0.2.1 maintenance release
   - store-root location
   - local release gate
   - external publication obligations
@@ -41,9 +42,17 @@ Claude Code and Codex guidance is stored in one static `plugins/cuff` payload
 with both host manifests. Each host owns plugin installation and removal. Cuff
 does not package those assets into the Python wheel or mutate a live host.
 
+## 0.2.1 maintenance release
+
+The 0.2.1 cut replaces one obsolete caller example and protects the existing
+ledger-only freshness behavior used by sequential callers. It changes package
+and plugin identity together but does not change commands, JSON projections,
+record schemas, storage paths, runtime dependencies, or Cuff's one-work-item
+operation boundary.
+
 ## Release gate
 
-A 0.2.0 publication requires fresh evidence for the exact release bytes:
+A publication requires fresh evidence for the exact release bytes:
 
 - locked sync, Python 3.11 and current-version tests, and compile checks;
 - standard wheel and source distribution build;

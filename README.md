@@ -27,7 +27,7 @@ worktree, or stages, commits, fetches, pushes, releases, or deploys anything.
 Install a released version as a standard uv-managed tool:
 
 ```bash
-uv tool install cuff-cli==0.2.0
+uv tool install cuff-cli==0.2.1
 cuff --version
 ```
 
@@ -131,18 +131,28 @@ Validate the built candidate and both host payloads without touching the
 normal host configuration:
 
 ```bash
-uv build --out-dir ../sandbox/cuff-01/dist
+uv build --out-dir ../sandbox/cuff-02/dist
 uv run python tools/local_release_check.py --host all
 uv run python tools/local_release_check.py --host all --prepare-auth \
   --candidate-commit COMMIT \
-  --evidence-dir ../sandbox/cuff-01/e2e
+  --evidence-dir ../sandbox/cuff-02/e2e
 # Log each CLI in using the isolated home paths printed by the prepare phase.
 uv run python tools/local_release_check.py --host all --live --reuse-prepared \
   --candidate-commit COMMIT \
-  --evidence-dir ../sandbox/cuff-01/e2e \
+  --evidence-dir ../sandbox/cuff-02/e2e \
+  --qualification-manifest ../sandbox/cuff-02/control/qualification.json \
+  --preflight-evidence ../sandbox/cuff-02/control/preflight.json \
   --codex-model MODEL \
   --claude-model MODEL
 ```
+
+Before `--live`, freeze the exact candidate, host order, `current` and `stale`
+cases, three-valid-sample rule, prompts, tool policies, and containment policies
+in the qualification manifest. A trusted non-LLM runner must then record a
+passing containment preflight for the same qualification and policy digests.
+The checker rejects missing or mismatched controls and runs six fresh
+workspaces and host sessions per host. Follow the root `LLM_VERIFICATION.md`;
+unsupported isolation is `INCONCLUSIVE`, not a release pass.
 
 See [RUNBOOK.md](RUNBOOK.md) for operations, [the architecture overview](docs/architecture/overview.md)
 for ownership, and [the ledger contract](docs/architecture/ledger.md) for the

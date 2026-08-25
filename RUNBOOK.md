@@ -23,7 +23,7 @@ root of one Git worktree.
 Install a released package with uv:
 
 ```bash
-uv tool install cuff-cli==0.2.0
+uv tool install cuff-cli==0.2.1
 command -v cuff
 cuff --version
 ```
@@ -187,13 +187,19 @@ establish static structure.
 ## 8. Release
 
 After the release commit passes `CI`, create and push the matching version tag
-(`v0.2.0`). `release.yaml` verifies that the tag matches
+(`v0.2.1`). `release.yaml` verifies that the tag matches
 `pyproject.toml`, reruns the source checks and tests, builds once, publishes to
 PyPI with Trusted Publishing, then creates the GitHub Release from that tag.
 
 Configure the PyPI publisher as `fab7hq/cuff`, workflow `release.yaml`,
 environment `pypi`, and project `cuff-cli`. No PyPI token is used, and ordinary
 pushes to `main` never publish a package.
+
+Authenticated host qualification is a separate pre-tag gate. It uses fresh
+`sandbox/cuff-02` lanes, a frozen qualification manifest, and a passing trusted
+containment preflight under the root `LLM_VERIFICATION.md`. The live release
+checker accepts only those matching controls and requires three fresh current
+and three fresh stale-subject observations from each installed host.
 
 ## Troubleshooting
 
