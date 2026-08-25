@@ -27,7 +27,7 @@ worktree, or stages, commits, fetches, pushes, releases, or deploys anything.
 Install a released version as a standard uv-managed tool:
 
 ```bash
-uv tool install cuff-cli==0.2.1
+uv tool install cuff-cli==0.2.2
 cuff --version
 ```
 
@@ -65,6 +65,15 @@ cuff seal \
 
 cuff check --work-item task-1 --json
 ```
+
+Recovery controllers that need the latest linked observation, including a
+recorded verifier failure, may opt into the closed seven-field projection:
+
+```bash
+cuff check --work-item task-1 --json --include-latest-record
+```
+
+Without that flag, `check --json` retains its exact six-field response.
 
 The split path is available when the claim must exist before verification:
 

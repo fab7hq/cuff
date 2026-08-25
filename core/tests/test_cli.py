@@ -291,6 +291,20 @@ def test_success_json_envelopes_are_closed(
         "ok", "errors", "work_item", "latest_claim", "selected_evidence", "record_count"
     }
 
+    assert main([
+        "check", "--work-item", "work-1", "--json", "--include-latest-record"
+    ]) == 0
+    recovery = json.loads(capsys.readouterr().out)
+    assert set(recovery) == {
+        "ok", "errors", "work_item", "latest_claim", "selected_evidence",
+        "record_count", "latest_record",
+    }
+    assert recovery["latest_record"] == {
+        "path": ".fab7/cuff/records/work-1.jsonl",
+        "claim": claimed["record"],
+        "evidence": verified["record"],
+    }
+
 
 def test_subdirectory_discovers_the_root_project(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _initialize_and_commit(repo, capsys)
@@ -341,6 +355,14 @@ def test_missing_setup_and_non_git_init_return_stable_errors(
     assert missing["latest_claim"] is None
     assert missing["selected_evidence"] is None
     assert missing["record_count"] == 0
+
+    assert main([
+        "check", "--workspace", str(repo), "--work-item", "work-1",
+        "--include-latest-record", "--json",
+    ]) == 1
+    recovery_missing = json.loads(capsys.readouterr().out)
+    assert recovery_missing["latest_record"] is None
+    assert len(recovery_missing) == 7
 
     outside = repo.parent / f"{repo.name}-outside"
     outside.mkdir()

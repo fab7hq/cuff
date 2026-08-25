@@ -4,7 +4,7 @@ inputs:
   version:
     description: Cuff package version to install with uv.
     required: false
-    default: "0.2.1"
+    default: "0.2.2"
   working-directory:
     description: Initialized Git worktree root where cuff check runs.
     required: false

@@ -60,6 +60,101 @@ def test_gate_has_one_closed_projection_and_requires_latest_claim(repo: Path) ->
     assert _codes(check(repo, "work-1")) == ["CUFF_EVIDENCE_MISSING"]
 
 
+def test_opt_in_latest_record_projection_is_closed_and_workspace_relative(repo: Path) -> None:
+    init(repo)
+    empty = check(repo, "Work 1", include_latest_record=True)
+    assert list(empty) == [
+        "ok", "errors", "work_item", "latest_claim", "selected_evidence",
+        "record_count", "latest_record",
+    ]
+    assert empty["latest_record"] is None
+
+    claim = create_claim(repo, "work-1", "Done", OPAQUE, "agent:test")
+    append(repo, claim)
+    claimed = check(repo, "work-1", include_latest_record=True)
+    assert claimed["latest_record"] == {
+        "path": ".fab7/cuff/records/work-1.jsonl",
+        "claim": claim,
+        "evidence": None,
+    }
+
+    failed = verify(
+        repo,
+        "work-1",
+        str(claim["id"]),
+        [sys.executable, "-c", "raise SystemExit(7)"],
+        actor="agent:test",
+    ).record
+    projected = check(repo, "work-1", include_latest_record=True)
+    assert projected["latest_record"] == {
+        "path": ".fab7/cuff/records/work-1.jsonl",
+        "claim": claim,
+        "evidence": failed,
+    }
+    assert projected["selected_evidence"] is None
+    assert _codes(projected) == ["CUFF_EVIDENCE_FAILED"]
+
+
+def test_latest_record_uses_latest_linked_evidence_not_selected_passing_evidence(
+    repo: Path,
+) -> None:
+    claim = _claim(repo)
+    _verify(repo, claim)
+    selected = check(repo, "work-1")["selected_evidence"]
+    failed = verify(
+        repo,
+        "work-1",
+        str(claim["id"]),
+        [sys.executable, "-c", "raise SystemExit(9)"],
+        actor="agent:test",
+    ).record
+
+    result = check(repo, "work-1", include_latest_record=True)
+
+    assert result["ok"]
+    assert result["selected_evidence"] == selected
+    assert result["latest_record"]["evidence"] == failed  # type: ignore[index]
+    assert result["latest_record"]["evidence"]["claim"] == claim["id"]  # type: ignore[index]
+
+
+def test_latest_record_tracks_only_the_latest_claim_and_its_later_verifications(
+    repo: Path,
+) -> None:
+    first = _claim(repo)
+    _verify(repo, first)
+    latest = create_claim(repo, "work-1", "Corrected", OPAQUE, "agent:test")
+    append(repo, latest)
+    before = check(repo, "work-1", include_latest_record=True)
+    assert before["latest_record"]["claim"] == latest  # type: ignore[index]
+    assert before["latest_record"]["evidence"] is None  # type: ignore[index]
+
+    evidence = verify(
+        repo,
+        "work-1",
+        str(latest["id"]),
+        [sys.executable, "-c", "pass"],
+        actor="agent:test",
+    ).record
+    after = check(repo, "work-1", include_latest_record=True)
+    assert after["latest_record"]["claim"] == latest  # type: ignore[index]
+    assert after["latest_record"]["evidence"] == evidence  # type: ignore[index]
+
+
+def test_latest_record_survives_staleness_but_not_malformed_storage(repo: Path) -> None:
+    claim = _claim(repo)
+    _verify(repo, claim)
+    (repo / "unrelated.txt").write_text("dirty\n")
+    stale = check(repo, "work-1", include_latest_record=True)
+    assert stale["latest_record"]["claim"] == claim  # type: ignore[index]
+    assert stale["latest_record"]["evidence"]["claim"] == claim["id"]  # type: ignore[index]
+    assert not stale["ok"]
+
+    (repo / ".fab7/cuff/records/other.jsonl").write_text("{not json}\n")
+    malformed = check(repo, "work-1", include_latest_record=True)
+    assert malformed["latest_record"] is None
+    assert _codes(malformed) == ["CUFF_LEDGER_INVALID"]
+
+
 def test_gate_validates_every_ledger_before_selecting_requested_work_item(repo: Path) -> None:
     claim = _claim(repo)
     _verify(repo, claim)

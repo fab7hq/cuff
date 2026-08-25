@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import CuffError
-from .ledger import RECORDS_DIR, normalize_work_item, read, read_all
+from .ledger import RECORDS_DIR, normalize_work_item, read, read_all, record_path
 from .subject import current_subject
 
 
@@ -16,6 +16,7 @@ def check(
     *,
     base: str | None = None,
     head: str | None = None,
+    include_latest_record: bool = False,
 ) -> dict[str, Any]:
     normalized = normalize_work_item(work_item)
     result: dict[str, Any] = {
@@ -26,6 +27,8 @@ def check(
         "selected_evidence": None,
         "record_count": 0,
     }
+    if include_latest_record:
+        result["latest_record"] = None
     try:
         read_all(root)
         records = read(root, normalized)
@@ -37,6 +40,17 @@ def check(
     claims = [record for record in records if record["type"] == "claim"]
     claim = claims[-1] if claims else None
     result["latest_claim"] = claim
+    if claim is not None and include_latest_record:
+        linked = [
+            record
+            for record in records
+            if record["type"] == "evidence" and record["claim"] == claim["id"]
+        ]
+        result["latest_record"] = {
+            "path": _relative_record_path(root, normalized),
+            "claim": claim,
+            "evidence": linked[-1] if linked else None,
+        }
 
     git_context = _check_git_workspace(root, base, head, result["errors"])
     if claim is None:
@@ -46,8 +60,7 @@ def check(
     linked = [
         record
         for record in records
-        if record["type"] == "evidence"
-        and record["claim"] == claim["id"]
+        if record["type"] == "evidence" and record["claim"] == claim["id"]
     ]
     if not linked:
         _fail(
@@ -95,6 +108,19 @@ def check(
         record_id=claim["id"],
     )
     return result
+
+
+def _relative_record_path(root: Path, work_item: str) -> str:
+    workspace = root.resolve()
+    path = record_path(workspace, work_item).resolve()
+    try:
+        return path.relative_to(workspace).as_posix()
+    except ValueError as exc:
+        raise CuffError(
+            "CUFF_PATH_INVALID",
+            "Cuff ledger path escapes the workspace",
+            {"path": str(path), "workspace": str(workspace)},
+        ) from exc
 
 
 def _subject_fresh(root: Path, claim: dict[str, Any]) -> bool:

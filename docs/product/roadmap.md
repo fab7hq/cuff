@@ -6,6 +6,7 @@ owner: product
 authority_for:
   - 0.2.0 release outcome
   - 0.2.1 maintenance release
+  - 0.2.2 recovery projection
   - store-root location
   - local release gate
   - external publication obligations
@@ -49,6 +50,13 @@ ledger-only freshness behavior used by sequential callers. It changes package
 and plugin identity together but does not change commands, JSON projections,
 record schemas, storage paths, runtime dependencies, or Cuff's one-work-item
 operation boundary.
+
+## 0.2.2 recovery projection
+
+The 0.2.2 cut adds `check --include-latest-record` for deterministic callers
+that must recover the latest claim and its latest linked evidence without
+reading Cuff storage. The default six-field JSON projection, five commands,
+record selection, schemas, paths, and exit statuses remain unchanged.
 
 ## Release gate
 

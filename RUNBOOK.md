@@ -23,7 +23,7 @@ root of one Git worktree.
 Install a released package with uv:
 
 ```bash
-uv tool install cuff-cli==0.2.1
+uv tool install cuff-cli==0.2.2
 command -v cuff
 cuff --version
 ```
@@ -187,7 +187,7 @@ establish static structure.
 ## 8. Release
 
 After the release commit passes `CI`, create and push the matching version tag
-(`v0.2.1`). `release.yaml` verifies that the tag matches
+(`v0.2.2`). `release.yaml` verifies that the tag matches
 `pyproject.toml`, reruns the source checks and tests, builds once, publishes to
 PyPI with Trusted Publishing, then creates the GitHub Release from that tag.
 

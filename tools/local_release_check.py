@@ -18,7 +18,7 @@ from typing import Any
 
 PRODUCT = "cuff"
 DISTRIBUTION = "cuff-cli"
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 VALID_SAMPLES = 3
 HOST_EXIT_CODES = tuple(range(256))
 CHECK_FIELDS = {

@@ -57,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     readiness.add_argument("--work-item", required=True)
     readiness.add_argument("--base")
     readiness.add_argument("--head")
+    readiness.add_argument("--include-latest-record", action="store_true")
     readiness.add_argument("--json", action="store_true")
     return parser
 
@@ -129,7 +130,13 @@ def main(argv: list[str] | None = None) -> int:
                 f"exit {sealed.evidence['exit_code']}",
             )
         if args.command == "check":
-            data = check(root, args.work_item, base=args.base, head=args.head)
+            data = check(
+                root,
+                args.work_item,
+                base=args.base,
+                head=args.head,
+                include_latest_record=args.include_latest_record,
+            )
             return _finish_result(args, data, "Cuff readiness")
         parser.error("unknown command")
     except CuffError as exc:
@@ -231,7 +238,7 @@ def _check_error(args: argparse.Namespace, error: dict[str, Any]) -> dict[str, A
         work_item = normalize_work_item(work_item)
     except CuffError:
         pass
-    return {
+    result = {
         "ok": False,
         "errors": [error],
         "work_item": work_item,
@@ -239,6 +246,9 @@ def _check_error(args: argparse.Namespace, error: dict[str, Any]) -> dict[str, A
         "selected_evidence": None,
         "record_count": 0,
     }
+    if getattr(args, "include_latest_record", False):
+        result["latest_record"] = None
+    return result
 
 
 def _replay(content: bytes, stream: Any) -> None:
