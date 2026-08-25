@@ -253,7 +253,7 @@ def require_versions(root: Path, payload: Path) -> None:
         "README.md": [f"cuff-cli=={VERSION}", "sandbox/cuff-02"],
         "RUNBOOK.md": [f"cuff-cli=={VERSION}", f"v{VERSION}"],
         "action/README.md": [f"action@v{VERSION}", f'version: "{VERSION}"'],
-        "docs/product/roadmap.md": [f"## {VERSION} maintenance release"],
+        "docs/product/roadmap.md": [f"## {VERSION} recovery projection"],
     }
     for relative, required in guidance.items():
         content = (root / relative).read_text()
